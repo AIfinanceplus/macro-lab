@@ -12,6 +12,8 @@
   的官方 RSS。
 - OpenBB 或新闻源失败时不会用教学数据静默冒充 Live 数据；证据不足则
   `ABSTAIN`。
+- 服务启动时会在主线程预加载 OpenBB 的惰性命令树，避免首次构建在 HTTP
+  工作线程触发 `signal only works in main thread`。
 - 外部新闻始终被标记为不可信数据，不拥有修改任务或调用工具的权限。
 
 ## 九项原则如何落地

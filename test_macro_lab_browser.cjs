@@ -12,7 +12,7 @@ const {chromium} = require('playwright');
   server.stderr.on('data', data => { errors += String(data); });
   try {
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error(`server timeout: ${errors}`)), 10000);
+      const timeout = setTimeout(() => reject(new Error(`server timeout: ${errors}`)), 45000);
       server.stdout.on('data', data => {
         if (String(data).includes('http://127.0.0.1:8011')) {
           clearTimeout(timeout);

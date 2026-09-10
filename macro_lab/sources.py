@@ -40,6 +40,26 @@ class SourceUnavailable(RuntimeError):
     pass
 
 
+def preload_openbb() -> tuple[bool, str]:
+    """Build OpenBB's lazy command tree before HTTP worker threads exist.
+
+    OpenBB's first-run package builder temporarily installs signal handlers.
+    Python permits that only on the main thread, while ThreadingHTTPServer runs
+    request handlers on worker threads. Touching both routes at server startup
+    keeps the expensive one-time build on the main thread.
+    """
+    try:
+        module = importlib.import_module("openbb")
+        obb = module.obb
+        _ = obb.economy.fred_series
+        _ = obb.news.world
+    except ImportError:
+        return False, "not installed; fixture mode remains available"
+    except Exception as exc:
+        return False, f"preload failed: {type(exc).__name__}: {exc}"
+    return True, "ready"
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -132,7 +152,16 @@ class OpenBBMacroSource:
                 credentials.fred_api_key = fred_api_key
             try:
                 for symbol in symbols:
-                    rows.extend(self._fetch_symbol(obb, symbol))
+                    try:
+                        rows.extend(self._fetch_symbol(obb, symbol))
+                    except SourceUnavailable:
+                        raise
+                    except Exception as exc:
+                        detail = str(exc).replace(fred_api_key, "[REDACTED]") \
+                            if fred_api_key else str(exc)
+                        raise SourceUnavailable(
+                            f"OpenBB FRED request failed for {symbol}: "
+                            f"{type(exc).__name__}: {detail}") from exc
             finally:
                 if fred_api_key:
                     obb.user.credentials.fred_api_key = previous

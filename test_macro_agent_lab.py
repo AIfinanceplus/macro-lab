@@ -7,7 +7,8 @@ from unittest.mock import patch
 
 from macro_lab.contracts import HandoffEnvelope
 from macro_lab.runtime import MacroResearchRuntime
-from macro_lab.sources import OpenBBMacroSource, OpenBBNewsSource
+from macro_lab.sources import (OpenBBMacroSource, OpenBBNewsSource,
+                               SourceUnavailable, preload_openbb)
 from macro_lab.storage import RunStore
 
 
@@ -116,6 +117,31 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertEqual(rows[0]["value"], 4.125)
         self.assertFalse(rows[0]["fixture"])
         self.assertIsNone(credentials.fred_api_key)
+
+    def test_openbb_preload_builds_lazy_routes_before_requests(self):
+        fake_obb = SimpleNamespace(
+            economy=SimpleNamespace(fred_series=lambda: None),
+            news=SimpleNamespace(world=lambda: None),
+        )
+        with patch("macro_lab.sources.importlib.import_module",
+                   return_value=SimpleNamespace(obb=fake_obb)) as imported:
+            ready, status = preload_openbb()
+        self.assertTrue(ready)
+        self.assertEqual(status, "ready")
+        imported.assert_called_once_with("openbb")
+
+    def test_openbb_provider_failure_becomes_safe_source_unavailable(self):
+        def fail(**kwargs):
+            raise ValueError("signal only works in main thread of the main interpreter")
+
+        fake_obb = SimpleNamespace(
+            economy=SimpleNamespace(fred_series=fail),
+            user=SimpleNamespace(credentials=SimpleNamespace(fred_api_key=None)),
+        )
+        with patch("macro_lab.sources.importlib.import_module",
+                   return_value=SimpleNamespace(obb=fake_obb)):
+            with self.assertRaisesRegex(SourceUnavailable, "OpenBB FRED request failed"):
+                OpenBBMacroSource().fetch(symbols=["DGS10"], fred_api_key="secret")
 
     def test_cpi_is_transformed_from_index_to_year_over_year_percent(self):
         class FakeSeries:
