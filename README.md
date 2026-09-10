@@ -1,7 +1,6 @@
 # 严谨宏观研究 Agent Lab
 
-这是 `agent-engineering-from-scratch` 中第一个同时实现九项严谨通用
-Agent 原则的参考应用。它不是交易系统，也不会连接券商或产生订单。
+这是一个独立、可运行、同时实现九项严谨通用 Agent 原则的参考项目。它不是交易系统，也不会连接券商或产生订单。
 
 ## 数据边界
 
@@ -82,5 +81,12 @@ provider Key；不配置时官方 RSS 仍会独立运行，若证据不够则安
 ```bash
 python3 -m unittest -v test_macro_agent_lab.py
 node --check web/macro_lab.js
-node test_macro_lab_browser.cjs
+```
+
+可选浏览器端到端验收：
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:browser
 ```
