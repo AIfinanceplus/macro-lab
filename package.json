@@ -1,0 +1,11 @@
+{
+  "name": "rigorous-macro-agent-lab",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test:browser": "node test_macro_lab_browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}

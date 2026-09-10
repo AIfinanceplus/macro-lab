@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.py[cod]
+.macro_agent_runs/
+node_modules/
+.DS_Store

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rigorous Macro Research Agent Lab</title>
+  <link rel="stylesheet" href="/macro_lab.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">M9</div>
+    <div class="brand-copy">
+      <span class="eyebrow">STRICTGRAPH REFERENCE APP</span>
+      <h1>宏观研究 Agent Lab</h1>
+    </div>
+    <div class="top-status">
+      <span class="scope-pill">RESEARCH ONLY</span>
+      <span class="scope-pill safe">0 WRITE EFFECTS</span>
+      <span id="run-status" class="run-status idle"><i></i>等待运行</span>
+    </div>
+  </header>
+
+  <section class="mission-strip">
+    <div><span>本次主题</span><strong>九项严谨通用原则 · 全链路宏观研究</strong></div>
+    <p>OpenBB 宏观数据 + OpenBB/官方新闻 → 来源治理 → 证据图 → 模型提议 → 批判验证 → 风险发布</p>
+    <div class="score-orb"><strong id="score-value">0/9</strong><small>原则通过</small></div>
+  </section>
+
+  <main>
+    <section class="control-deck panel">
+      <div class="control-main">
+        <label for="question">Research Mission</label>
+        <textarea id="question">Assess the current U.S. inflation-growth-policy regime and its key risks.</textarea>
+      </div>
+      <div class="control-selects">
+        <label>Data mode<select id="mode"><option value="fixture">教学快照 · 无需 Key</option><option value="live">Live · OpenBB + RSS</option></select></label>
+        <label>Safety scenario<select id="scenario"><option value="baseline">正常研究 · 目标 9/9</option><option value="tainted_news">恶意新闻 · 隔离后继续</option><option value="evidence_gap">证据不足 · 安全 ABSTAIN</option><option value="checkpoint_pause">断点暂停 · 等待恢复</option></select></label>
+        <label>Analyst model<select id="model-mode"><option value="deterministic">确定性教学 Analyst</option><option value="live">OpenAI-compatible LLM</option></select></label>
+      </div>
+      <details id="live-settings" class="settings">
+        <summary>Live 数据与模型设置 <span>Key 只随本次请求发送，不进入 Trace/Checkpoint</span></summary>
+        <div class="settings-grid">
+          <label>FRED API Key<input id="fred-key" type="password" autocomplete="off" placeholder="OpenBB FRED provider"></label>
+          <label>OpenBB news provider<select id="news-provider"><option value="">默认 / 预配置</option><option value="benzinga">Benzinga</option><option value="fmp">FMP</option><option value="intrinio">Intrinio</option><option value="tiingo">Tiingo</option></select></label>
+          <label>News provider API Key<input id="news-key" type="password" autocomplete="off" placeholder="只随本次请求发送"></label>
+          <label>Model API Key<input id="model-key" type="password" autocomplete="off" placeholder="sk-…"></label>
+          <label>Model ID<input id="model-id" value="gpt-5.4-mini"></label>
+          <label>OpenAI-compatible base URL<input id="model-url" value="https://api.openai.com/v1"></label>
+          <label class="remember"><input id="remember-keys" type="checkbox">仅保存在当前浏览器</label>
+        </div>
+      </details>
+      <div class="run-actions">
+        <button id="run-button" class="primary">▶ Run rigorous research</button>
+        <button id="resume-button" class="resume hidden">↳ Resume from checkpoint</button>
+        <span id="run-id">RUN —</span>
+      </div>
+    </section>
+
+    <section class="metric-row">
+      <div><span>Accepted evidence</span><strong id="metric-evidence">0</strong></div>
+      <div><span>Quarantined</span><strong id="metric-quarantine">0</strong></div>
+      <div><span>Tool reads</span><strong id="metric-tools">0</strong></div>
+      <div><span>Write effects</span><strong id="metric-effects">0</strong></div>
+      <div><span>Trace events</span><strong id="metric-events">0</strong></div>
+    </section>
+
+    <section class="workspace-grid">
+      <aside class="panel agents-panel">
+        <div class="panel-head"><div><span class="eyebrow">AGENT TEAM</span><h2>职责与权限边界</h2></div><small>点击展开契约</small></div>
+        <div id="agents" class="agent-list"></div>
+      </aside>
+
+      <section class="panel flow-panel">
+        <div class="panel-head"><div><span class="eyebrow">LIVE CONTROL PLANE</span><h2>信息流 · 决策流 · 风险流</h2></div><span id="current-stage" class="stage-pill">IDLE</span></div>
+        <div class="flow-lanes">
+          <div class="flow-lane information"><div class="lane-title"><i></i><span>信息流</span><small>事实如何进入系统</small></div><div class="lane-route"><b data-node="economist">OpenBB</b><em>→</em><b data-node="news_scout">News</b><em>→</em><b data-node="evidence_steward">Evidence</b></div></div>
+          <div class="flow-lane decision"><div class="lane-title"><i></i><span>决策流</span><small>模型只能提出 WHAT</small></div><div class="lane-route"><b data-node="director">Contract</b><em>→</em><b data-node="macro_analyst">Proposal</b><em>→</em><b data-node="critic">Critic</b><em>→</em><b data-node="governor">Report</b></div></div>
+          <div class="flow-lane risk"><div class="lane-title"><i></i><span>风险控制流</span><small>Runtime 决定 HOW / WHETHER</small></div><div class="lane-route"><b data-risk="contract">Schema</b><em>→</em><b data-risk="capability">Capability</b><em>→</em><b data-risk="taint">Taint</b><em>→</em><b data-risk="verify">Verify</b></div></div>
+        </div>
+        <div class="now-card">
+          <div class="now-icon" id="now-icon">◎</div>
+          <div><span id="now-label">等待开始</span><strong id="now-message">运行后，每个节点的输入、输出、权限与门禁会在这里展开。</strong></div>
+          <button id="event-detail-button" disabled>查看原始事件</button>
+        </div>
+        <div id="event-detail" class="event-detail hidden"><pre></pre></div>
+        <div class="trace-head"><span>Persisted NDJSON Trace</span><small>先写入磁盘，再发送到 UI</small></div>
+        <div id="trace" class="trace-stream"><div class="empty-state">尚无运行事件</div></div>
+      </section>
+
+      <aside class="panel principles-panel">
+        <div class="panel-head"><div><span class="eyebrow">9-PRINCIPLE CONFORMANCE</span><h2>逐项机器核对</h2></div></div>
+        <div id="principles" class="principle-list"></div>
+      </aside>
+    </section>
+
+    <section class="panel result-panel">
+      <nav class="tabs">
+        <button class="active" data-tab="report">研究报告</button>
+        <button data-tab="evidence">Evidence Graph</button>
+        <button data-tab="contract">Task Contract</button>
+        <button data-tab="checkpoint">State / Checkpoint</button>
+        <button data-tab="architecture">Architecture</button>
+      </nav>
+      <div id="tab-report" class="tab-page active"><div class="empty-result"><strong>报告等待生成</strong><p>模型结论不会自动发布，必须通过引用、权限和九项原则门禁。</p></div></div>
+      <div id="tab-evidence" class="tab-page"><div id="evidence-grid" class="evidence-grid"></div></div>
+      <div id="tab-contract" class="tab-page"><pre id="contract-json">—</pre></div>
+      <div id="tab-checkpoint" class="tab-page"><pre id="checkpoint-json">—</pre></div>
+      <div id="tab-architecture" class="tab-page">
+        <div class="architecture-grid">
+          <article><span>MODEL PLANE</span><strong>Proposal only</strong><p>理解、规划、分析；无数据端点选择权和写入权限。</p></article>
+          <article><span>EVIDENCE PLANE</span><strong>Provenance first</strong><p>来源、时间、哈希、污染状态和引用边形成证据图。</p></article>
+          <article><span>CONTROL PLANE</span><strong>Runtime owns HOW</strong><p>Capability、Handoff、预算、风险和 ABSTAIN。</p></article>
+          <article><span>GOVERNANCE PLANE</span><strong>Replayable truth</strong><p>NDJSON、Checkpoint、九项评测和恢复。</p></article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="agent-modal" class="modal hidden"><div class="modal-card"><button id="modal-close">×</button><div id="modal-content"></div></div></div>
+  <script src="/macro_lab.js"></script>
+</body>
+</html>
