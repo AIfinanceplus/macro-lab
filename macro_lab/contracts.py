@@ -40,9 +40,15 @@ class ContractCompiler:
 
     OUTPUT_SCHEMA = {
         "status": "COMPLETE|ABSTAIN",
+        "report_title": "string",
         "executive_summary": "string",
-        "claims": [{"text": "string", "evidence_ids": ["string"]}],
+        "key_findings": ["string"],
+        "claims": [{"text": "string", "evidence_ids": ["string"],
+                    "classification": "FACT|INFERENCE|SCENARIO"}],
+        "factor_assessment": ["FactorAssessment"],
+        "scenario_outlook": ["Scenario"],
         "risks": ["string"],
+        "methodology": ["string"],
         "confidence": "number[0,1]",
     }
 

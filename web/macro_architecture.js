@@ -30,7 +30,8 @@ const nodes = [
   {id:'principle_gate', name:'9-Principle Gate', subtitle:'Machine conformance', icon:'⑨', plane:'control', depth:2, p:[7.2,-3.4,1.3], purpose:'逐项产生可机器复核的 9/9 证据，而不是自我宣称安全。', input:'State + trace + verification', output:'Nine check results', authority:'Publish/abstain boundary', principles:[1,2,3,4,5,6,7,8,9]},
 
   {id:'deterministic', name:'Deterministic Model', subtitle:'No-key baseline', icon:'ƒ', plane:'model', depth:3, p:[1.6,4.4,-2.2], purpose:'提供可重复的教学基线，用于 Golden behavior 与回归。', input:'Accepted evidence', output:'Deterministic proposal', authority:'Proposal only', principles:[2,7]},
-  {id:'llm', name:'Optional LLM', subtitle:'OpenAI-compatible', icon:'✦', plane:'model', depth:3, p:[3.8,4.4,1.7], purpose:'大模型只生成 JSON 提议；Runtime 不接受模型自授权限。', input:'Redacted evidence context', output:'Untrusted proposal JSON', authority:'No tool or publish authority', principles:[2,7,8]},
+  {id:'cpi_engine', name:'CPI Factor Engine', subtitle:'Momentum · lag · z-score', icon:'∿', plane:'model', depth:3, p:[-.8,4.4,1.9], purpose:'在模型之前确定性计算同比、3m 年化动量、z-score 和 0–6 月领先滞后；不做因果宣称。', input:'Allowlisted OpenBB histories', output:'Reproducible CPI diagnostics', authority:'PURE compute only', principles:[2,4,7]},
+  {id:'llm', name:'OpenAI Responses', subtitle:'Strict JSON Schema', icon:'✦', plane:'model', depth:3, p:[3.8,4.4,1.7], purpose:'OpenAI 只生成受 JSON Schema 约束的研究提议；Runtime 不接受模型自授权限。', input:'Redacted evidence + deterministic diagnostics', output:'Untrusted proposal JSON', authority:'No tool or publish authority', principles:[2,7,8]},
   {id:'evidence_graph', name:'Evidence Graph', subtitle:'Source → claim', icon:'⌘', plane:'state', depth:3, p:[.2,-5.8,-.2], purpose:'保存来源、时间、哈希、污染状态和 Claim 引用边。', input:'Governed candidates', output:'Traceable evidence IDs', authority:'Append via Runtime', principles:[3,4,7]},
   {id:'journal', name:'NDJSON Journal', subtitle:'Persist before publish', icon:'≣', plane:'state', depth:4, p:[2.7,-5.8,-2.1], purpose:'每个事件先落盘，再通过 NDJSON 发给 UI，Trace 是可重放事实。', input:'Runtime event', output:'Ordered durable event', authority:'Append only', principles:[3,9]},
   {id:'checkpoint', name:'Checkpoint', subtitle:'Atomic resume state', icon:'↻', plane:'state', depth:4, p:[5,-5.8,0], purpose:'在边界原子保存状态；恢复时跳过已经成功的工具调用。', input:'Redacted runtime state', output:'Resume point', authority:'Runtime state only', principles:[3,9]},
@@ -45,6 +46,7 @@ const edges = [
   ['mission','director','decision'], ['director','task_contract','decision'],
   ['task_contract','economist','decision'], ['task_contract','news_scout','decision'],
   ['openbb_macro','economist','information'], ['openbb_news','news_scout','information'],
+  ['openbb_macro','cpi_engine','information'], ['cpi_engine','economist','information'],
   ['official_rss','news_scout','information'], ['economist','evidence_steward','information'],
   ['news_scout','evidence_steward','information'], ['evidence_steward','macro_analyst','information'],
   ['deterministic','macro_analyst','decision'], ['llm','macro_analyst','decision'],
@@ -60,7 +62,7 @@ const edges = [
 
 const chapters = [
   {label:'01 · FORMALIZE', title:'先把问题变成不可变契约', copy:'研究总监固化目标、预算、输出 Schema、权限边界与 ABSTAIN 条件。', focus:['mission','director','task_contract']},
-  {label:'02 · COLLECT', title:'两个只读分支并行取证', copy:'数据经济学家读取 OpenBB 宏观序列；新闻情报员读取 OpenBB 与官方 RSS。', focus:['openbb_macro','openbb_news','official_rss','economist','news_scout','capability']},
+  {label:'02 · COLLECT', title:'只读取证与 CPI 确定性计算', copy:'数据经济学家读取固定 OpenBB 历史序列，CPI Engine 先计算动量与领先滞后；新闻情报员读取 OpenBB 与官方 RSS。', focus:['openbb_macro','cpi_engine','openbb_news','official_rss','economist','news_scout','capability']},
   {label:'03 · GOVERN EVIDENCE', title:'外部内容先过证据与污染门', copy:'来源、时效、哈希和独立性通过后才形成 Evidence Graph；恶意指令只会进入隔离区。', focus:['evidence_steward','taint_gate','evidence_graph','handoff']},
   {label:'04 · PROPOSE', title:'模型只有提议权，没有执行权', copy:'确定性基线或可选 LLM 只能引用已接受 Evidence ID 生成 Proposal。', focus:['deterministic','llm','macro_analyst','evidence_graph']},
   {label:'05 · VERIFY', title:'反方审查与九项门禁决定是否发布', copy:'Critic 检查引用和证据覆盖，Governor 只能 COMPLETE 或 ABSTAIN。', focus:['critic','verifier','governor','principle_gate','report']},
@@ -234,7 +236,7 @@ function selectNode(id) {
 function resetOverview() {
   camera={yaw:-.28,pitch:.17,zoom:fitZoom()};
   stopStory();
-  document.querySelector('#chapter-label').textContent='SYSTEM OVERVIEW · 26 MODULES';
+  document.querySelector('#chapter-label').textContent='SYSTEM OVERVIEW · 27 MODULES';
   document.querySelector('#chapter-title').textContent='严谨宏观研究 Agent 的完整工程剖面';
   document.querySelector('#chapter-copy').textContent='拖动空间旋转，滚轮或双指缩放；点击任一模块查看输入、输出、权限和九项原则映射。';
 }

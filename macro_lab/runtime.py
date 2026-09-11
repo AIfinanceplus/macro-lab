@@ -11,7 +11,10 @@ from typing import Any, Iterator
 from uuid import uuid4
 
 from .contracts import AGENTS, TOOLS, ContractCompiler, HandoffEnvelope, canonical_hash
-from .model import ModelProposalError, OpenAICompatibleModel, deterministic_proposal
+from .cpi_research import (CPI_SERIES, analyze_cpi, cpi_evidence,
+                           fixture_cpi_history)
+from .model import (ModelProposalError, OpenAICompatibleModel,
+                    deterministic_cpi_proposal, deterministic_proposal)
 from .security import CapabilityAuthority, scan_untrusted_text
 from .sources import (FixtureSources, OfficialRSSSource, OpenBBMacroSource,
                       OpenBBNewsSource, SERIES, SourceUnavailable)
@@ -54,6 +57,13 @@ class MacroResearchRuntime:
             "agents": [agent.public() for agent in AGENTS.values()],
             "tools": [vars(tool) for tool in TOOLS.values()],
             "plan": PLAN,
+            "research_templates": [
+                {"id": "cpi_deep_dive", "name": "CPI 影响因子专题研究",
+                 "default_question": "研究美国 CPI 的主要影响因子、当前动量、传导时滞与未来情景。"},
+                {"id": "macro_regime", "name": "宏观周期综合研判",
+                 "default_question": "Assess the current U.S. inflation-growth-policy regime and its key risks."},
+            ],
+            "openai_models": ["gpt-6-astra", "gpt-5.6-terra", "gpt-5.6-luna"],
             "data_sources": {
                 "macro": ["OpenBB ODP", "FRED through OpenBB"],
                 "news": ["OpenBB world news", "Federal Reserve RSS", "BLS RSS", "BEA RSS"],
@@ -104,7 +114,7 @@ class MacroResearchRuntime:
             state["stage"] = "evidence_ready"
             state["memory"] = {
                 "short_term_keys": ["contract", "plan", "evidence", "quarantine"],
-                "long_term_record": {"run_id": run_id, "topic": "macro_regime",
+                "long_term_record": {"run_id": run_id, "topic": state["research_type"],
                                      "accepted_evidence_count": len(accepted),
                                      "contains_raw_content": False,
                                      "contains_credentials": False},
@@ -163,13 +173,16 @@ class MacroResearchRuntime:
                 proposal = OpenAICompatibleModel().propose(
                     question=state["question"], evidence=state["evidence"],
                     api_key=str(request.get("model_api_key", "")),
-                    model=str(request.get("model", "gpt-5.4-mini")),
+                    model=str(request.get("model", "gpt-6-astra")),
                     base_url=str(request.get("model_base_url", "https://api.openai.com/v1")),
+                    research_type=state["research_type"], analysis=state.get("cpi_analysis"),
                 )
             except ModelProposalError as exc:
                 proposal, model_error = None, str(exc)
         else:
-            proposal = deterministic_proposal(state["evidence"])
+            proposal = (deterministic_cpi_proposal(state["evidence"], state["cpi_analysis"])
+                        if state["research_type"] == "cpi_deep_dive"
+                        else deterministic_proposal(state["evidence"]))
         state["proposal"] = proposal
         state["stage"] = "proposal_created"
         self._checkpoint(state)
@@ -183,6 +196,13 @@ class MacroResearchRuntime:
         yield self._handoff(state, "macro_analyst", "critic", "report_proposal",
                             tuple(item["evidence_id"] for item in state["evidence"]))
         verification = self._verify(state, model_error=model_error)
+        elapsed_ms = round((perf_counter() - started) * 1000, 3)
+        deadline_ms = state["contract"]["budget"]["deadline_ms"]
+        if elapsed_ms > deadline_ms:
+            verification["passed"] = False
+            verification["reasons"] = sorted(set(
+                [*verification["reasons"], "slo_deadline_exceeded"]))
+            verification["summary"] = "; ".join(verification["reasons"])
         state["verification"] = verification
         state["stage"] = "verified"
         self._checkpoint(state)
@@ -192,7 +212,6 @@ class MacroResearchRuntime:
 
         yield self._handoff(state, "critic", "governor", "verification_result",
                             tuple(item["evidence_id"] for item in state["evidence"]))
-        elapsed_ms = round((perf_counter() - started) * 1000, 3)
         outcome = "COMPLETE" if verification["passed"] else "ABSTAIN"
         report = deepcopy(state.get("proposal") or {
             "executive_summary": "证据或模型输出未满足发布契约。",
@@ -203,6 +222,8 @@ class MacroResearchRuntime:
             "effect_count": state["effect_count"], "contract_id": state["contract"]["contract_id"],
             "run_id": state["run_id"], "data_mode": state["mode"],
             "fixture_disclaimer": state["mode"] == "fixture",
+            "research_type": state["research_type"],
+            "cpi_analysis": state.get("cpi_analysis"),
         })
         state["report"] = report
         checks = self._principle_checks(state, elapsed_ms=elapsed_ms)
@@ -231,11 +252,23 @@ class MacroResearchRuntime:
                             contract_id=state["contract"]["contract_id"],
                             agent_id="economist", tool_name="openbb_macro")
         state["tool_calls"].append({"tool": "openbb_macro", "effect": "READ", "authorized": True})
+        symbols = list(CPI_SERIES) if state["research_type"] == "cpi_deep_dive" else list(SERIES)
         yield self._emit(state, "tool_started", "economist", "information", "D1",
-                         "读取批准的宏观序列。", {"symbols": list(SERIES), "secret_fields": []})
+                         "读取批准的宏观序列。", {"symbols": symbols, "secret_fields": []})
         try:
-            if state["mode"] == "live":
-                rows = OpenBBMacroSource().fetch(symbols=list(SERIES),
+            if state["research_type"] == "cpi_deep_dive":
+                histories = (OpenBBMacroSource().fetch_history(
+                    symbols=symbols, fred_api_key=str(request.get("fred_api_key", "")), years=8)
+                    if state["mode"] == "live" else fixture_cpi_history())
+                analysis = analyze_cpi(histories)
+                state["cpi_analysis"] = analysis
+                rows = cpi_evidence(analysis, fixture=state["mode"] == "fixture")
+                yield self._emit(state, "cpi_analysis_completed", "economist", "information", "D1",
+                                 "CPI 同比、3m 年化动量、z-score 与 0–6 月领先滞后已确定性计算。",
+                                 {"analysis": analysis, "model_used": False,
+                                  "causal_claim": False, "effect_count": 0})
+            elif state["mode"] == "live":
+                rows = OpenBBMacroSource().fetch(symbols=symbols,
                                                  fred_api_key=str(request.get("fred_api_key", "")))
             else:
                 rows = FixtureSources.macro(scenario=state["scenario"])
@@ -374,6 +407,19 @@ class MacroResearchRuntime:
                         reasons.append("claim_without_citation")
                         continue
                     citation_ids.extend(ids)
+                    if claim.get("classification") not in {"FACT", "INFERENCE", "SCENARIO"}:
+                        reasons.append("claim_classification_invalid")
+            for section in ("factor_assessment", "scenario_outlook"):
+                rows = proposal.get(section, [])
+                if not isinstance(rows, list):
+                    reasons.append(f"{section}_invalid")
+                    continue
+                for row in rows:
+                    ids = row.get("evidence_ids") if isinstance(row, dict) else None
+                    if not isinstance(ids, list):
+                        reasons.append(f"{section}_citation_invalid")
+                    else:
+                        citation_ids.extend(ids)
             if not set(citation_ids).issubset(evidence_ids):
                 reasons.append("unknown_or_quarantined_citation")
             if set(citation_ids) & quarantined_ids:
@@ -457,12 +503,18 @@ class MacroResearchRuntime:
         scenario = str(request.get("scenario", "baseline"))
         if scenario not in {"baseline", "tainted_news", "evidence_gap", "checkpoint_pause"}:
             raise ValueError("unsupported scenario")
+        research_type = str(request.get("research_type", "macro_regime"))
+        if research_type not in {"macro_regime", "cpi_deep_dive"}:
+            raise ValueError("unsupported research_type")
         return {
             "schema_version": 1, "run_id": run_id, "trace_id": f"TRACE-{run_id}",
             "sequence": 0, "status": "CREATED", "stage": "created",
-            "question": str(request.get("question") or
-                            "Assess the current U.S. inflation-growth-policy regime and its key risks."),
+            "question": str(request.get("question") or (
+                "研究美国 CPI 的主要影响因子、当前动量、传导时滞与未来情景。"
+                if research_type == "cpi_deep_dive" else
+                "Assess the current U.S. inflation-growth-policy regime and its key risks.")),
             "mode": mode, "scenario": scenario,
+            "research_type": research_type, "cpi_analysis": None,
             "model_mode": str(request.get("model_mode", "deterministic")),
             "contract": None, "plan": [], "candidates": [], "evidence": [],
             "quarantine": [], "contradictions": [], "tool_calls": [], "handoffs": [], "source_errors": [],

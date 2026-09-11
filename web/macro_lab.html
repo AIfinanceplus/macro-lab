@@ -22,8 +22,8 @@
   </header>
 
   <section class="mission-strip">
-    <div><span>本次主题</span><strong>九项严谨通用原则 · 全链路宏观研究</strong></div>
-    <p>OpenBB 宏观数据 + OpenBB/官方新闻 → 来源治理 → 证据图 → 模型提议 → 批判验证 → 风险发布</p>
+    <div><span>本次主题</span><strong id="mission-title">CPI 影响因子专题 · 机构级研究流程</strong></div>
+    <p id="mission-copy">OpenBB 历史序列 → 动量与领先滞后 → 证据图 → OpenAI 报告 → 批判验证 → 风险发布</p>
     <div class="score-orb"><strong id="score-value">0/9</strong><small>原则通过</small></div>
   </section>
 
@@ -31,24 +31,26 @@
     <section class="control-deck panel">
       <div class="control-main">
         <label for="question">Research Mission</label>
-        <textarea id="question">Assess the current U.S. inflation-growth-policy regime and its key risks.</textarea>
+        <textarea id="question">研究美国 CPI 的主要影响因子、当前动量、传导时滞与未来情景。</textarea>
       </div>
       <div class="control-selects">
-        <label>Data mode<select id="mode"><option value="fixture">教学快照 · 无需 Key</option><option value="live">Live · OpenBB + RSS</option></select></label>
+        <label>Research template<select id="research-type"><option value="cpi_deep_dive">CPI 影响因子专题</option><option value="macro_regime">宏观周期综合研判</option></select></label>
+        <label>Data mode<select id="mode"><option value="live">Live · OpenBB + RSS</option><option value="fixture">教学历史 · 无需数据 Key</option></select></label>
         <label>Safety scenario<select id="scenario"><option value="baseline">正常研究 · 目标 9/9</option><option value="tainted_news">恶意新闻 · 隔离后继续</option><option value="evidence_gap">证据不足 · 安全 ABSTAIN</option><option value="checkpoint_pause">断点暂停 · 等待恢复</option></select></label>
-        <label>Analyst model<select id="model-mode"><option value="deterministic">确定性教学 Analyst</option><option value="live">OpenAI-compatible LLM</option></select></label>
+        <label>Analyst model<select id="model-mode"><option value="live">OpenAI Responses API</option><option value="deterministic">确定性教学 Analyst</option></select></label>
       </div>
-      <details id="live-settings" class="settings">
-        <summary>Live 数据与模型设置 <span>Key 只随本次请求发送，不进入 Trace/Checkpoint</span></summary>
+      <details id="live-settings" class="settings" open>
+        <summary>Live 数据与 OpenAI 设置 <span>Key 只随请求发送，不进入 Trace / Checkpoint / Agent Memory</span></summary>
         <div class="settings-grid">
           <label>FRED API Key<input id="fred-key" type="password" autocomplete="off" placeholder="OpenBB FRED provider"></label>
           <label>OpenBB news provider<select id="news-provider"><option value="">默认 / 预配置</option><option value="benzinga">Benzinga</option><option value="fmp">FMP</option><option value="intrinio">Intrinio</option><option value="tiingo">Tiingo</option></select></label>
           <label>News provider API Key<input id="news-key" type="password" autocomplete="off" placeholder="只随本次请求发送"></label>
-          <label>Model API Key<input id="model-key" type="password" autocomplete="off" placeholder="sk-…"></label>
-          <label>Model ID<input id="model-id" value="gpt-5.4-mini"></label>
-          <label>OpenAI-compatible base URL<input id="model-url" value="https://api.openai.com/v1"></label>
-          <label class="remember"><input id="remember-keys" type="checkbox">仅保存在当前浏览器</label>
+          <label>OpenAI API Key<input id="model-key" type="password" autocomplete="off" placeholder="请在本地页面粘贴 sk-…"></label>
+          <label>OpenAI model<select id="model-id"><option value="gpt-6-astra">GPT-6 Astra · 最高质量</option><option value="gpt-5.6-terra">GPT-5.6 Terra · 质量/成本平衡</option><option value="gpt-5.6-luna">GPT-5.6 Luna · 低成本</option></select></label>
+          <label>OpenAI base URL<input id="model-url" value="https://api.openai.com/v1"></label>
+          <label class="remember"><input id="remember-keys" type="checkbox" checked>记住在本机浏览器；不写入服务器</label>
         </div>
+        <p class="key-safety">不要把 Key 发到聊天、截图或 GitHub。共享电脑请取消“记住”。OpenAI 仅撰写提议；所有数字先由确定性 CPI 引擎计算。</p>
       </details>
       <div class="run-actions">
         <button id="run-button" class="primary">▶ Run rigorous research</button>
@@ -74,7 +76,7 @@
       <section class="panel flow-panel">
         <div class="panel-head"><div><span class="eyebrow">LIVE CONTROL PLANE</span><h2>信息流 · 决策流 · 风险流</h2></div><span id="current-stage" class="stage-pill">IDLE</span></div>
         <div class="flow-lanes">
-          <div class="flow-lane information"><div class="lane-title"><i></i><span>信息流</span><small>事实如何进入系统</small></div><div class="lane-route"><b data-node="economist">OpenBB</b><em>→</em><b data-node="news_scout">News</b><em>→</em><b data-node="evidence_steward">Evidence</b></div></div>
+          <div class="flow-lane information"><div class="lane-title"><i></i><span>信息流</span><small>事实如何进入系统</small></div><div class="lane-route"><b data-node="economist">OpenBB + CPI Engine</b><em>→</em><b data-node="news_scout">News</b><em>→</em><b data-node="evidence_steward">Evidence</b></div></div>
           <div class="flow-lane decision"><div class="lane-title"><i></i><span>决策流</span><small>模型只能提出 WHAT</small></div><div class="lane-route"><b data-node="director">Contract</b><em>→</em><b data-node="macro_analyst">Proposal</b><em>→</em><b data-node="critic">Critic</b><em>→</em><b data-node="governor">Report</b></div></div>
           <div class="flow-lane risk"><div class="lane-title"><i></i><span>风险控制流</span><small>Runtime 决定 HOW / WHETHER</small></div><div class="lane-route"><b data-risk="contract">Schema</b><em>→</em><b data-risk="capability">Capability</b><em>→</em><b data-risk="taint">Taint</b><em>→</em><b data-risk="verify">Verify</b></div></div>
         </div>
@@ -102,12 +104,12 @@
         <button data-tab="checkpoint">State / Checkpoint</button>
         <button data-tab="architecture">Architecture</button>
       </nav>
-      <div id="tab-report" class="tab-page active"><div class="empty-result"><strong>报告等待生成</strong><p>模型结论不会自动发布，必须通过引用、权限和九项原则门禁。</p></div></div>
+      <div id="tab-report" class="tab-page active"><div class="empty-result"><strong>CPI 专题报告等待生成</strong><p>所有数字先由确定性引擎计算；OpenAI 只负责有引用的叙事与情景分析。</p></div></div>
       <div id="tab-evidence" class="tab-page"><div id="evidence-grid" class="evidence-grid"></div></div>
       <div id="tab-contract" class="tab-page"><pre id="contract-json">—</pre></div>
       <div id="tab-checkpoint" class="tab-page"><pre id="checkpoint-json">—</pre></div>
       <div id="tab-architecture" class="tab-page">
-        <a class="architecture-launch" href="/architecture"><span>◈</span><div><strong>Open 3D System Architecture</strong><small>旋转、缩放并逐层检查 26 个工程模块</small></div><em>→</em></a>
+        <a class="architecture-launch" href="/architecture"><span>◈</span><div><strong>Open 3D System Architecture</strong><small>旋转、缩放并逐层检查 27 个工程模块</small></div><em>→</em></a>
         <div class="architecture-grid">
           <article><span>MODEL PLANE</span><strong>Proposal only</strong><p>理解、规划、分析；无数据端点选择权和写入权限。</p></article>
           <article><span>EVIDENCE PLANE</span><strong>Provenance first</strong><p>来源、时间、哈希、污染状态和引用边形成证据图。</p></article>

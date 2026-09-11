@@ -169,9 +169,43 @@ class OpenBBMacroSource:
             raise SourceUnavailable("OpenBB returned no normalized macro observations")
         return rows
 
+    def fetch_history(self, *, symbols: list[str], fred_api_key: str = "",
+                      years: int = 8) -> dict[str, list[dict[str, Any]]]:
+        """Fetch an allowlisted history and normalize daily/weekly data to month-end."""
+        try:
+            module = importlib.import_module("openbb")
+            obb = module.obb
+        except (ImportError, AttributeError) as exc:
+            raise SourceUnavailable(
+                "OpenBB is not installed. Run: python3 -m pip install -r requirements-macro.txt"
+            ) from exc
+        start_date = (datetime.now(timezone.utc) - timedelta(days=366 * years)).date().isoformat()
+        histories: dict[str, list[dict[str, Any]]] = {}
+        with self._credential_lock:
+            previous = None
+            if fred_api_key:
+                credentials = obb.user.credentials
+                previous = getattr(credentials, "fred_api_key", None)
+                credentials.fred_api_key = fred_api_key
+            try:
+                for symbol in symbols:
+                    try:
+                        histories[symbol] = self._fetch_history_symbol(obb, symbol, start_date)
+                    except Exception as exc:
+                        detail = str(exc).replace(fred_api_key, "[REDACTED]") \
+                            if fred_api_key else str(exc)
+                        raise SourceUnavailable(
+                            f"OpenBB FRED history failed for {symbol}: "
+                            f"{type(exc).__name__}: {detail}") from exc
+            finally:
+                if fred_api_key:
+                    obb.user.credentials.fred_api_key = previous
+        if not histories.get("CPIAUCSL"):
+            raise SourceUnavailable("OpenBB returned no headline CPI history")
+        return histories
+
     @staticmethod
-    def _fetch_symbol(obb: Any, symbol: str) -> list[dict[str, Any]]:
-        start_date = (datetime.now(timezone.utc) - timedelta(days=500)).date().isoformat()
+    def _fetch_history_symbol(obb: Any, symbol: str, start_date: str) -> list[dict[str, Any]]:
         try:
             output = obb.economy.fred_series(
                 symbol=symbol, start_date=start_date, provider="fred")
@@ -181,12 +215,21 @@ class OpenBBMacroSource:
             frame = output.to_dataframe()
         except AttributeError as exc:
             raise SourceUnavailable("OpenBB result does not expose to_dataframe()") from exc
+        points = OpenBBMacroSource._frame_points(frame, symbol)
+        by_month: dict[str, tuple[str, float]] = {}
+        for observed_raw, value in points:
+            observed = getattr(observed_raw, "isoformat", lambda: str(observed_raw))()
+            by_month[str(observed)[:7]] = (str(observed), float(value))
+        return [{"date": observed, "value": value}
+                for observed, value in (by_month[key] for key in sorted(by_month))]
+
+    @staticmethod
+    def _frame_points(frame: Any, symbol: str) -> list[tuple[Any, float]]:
         if frame is None or getattr(frame, "empty", True):
             return []
         clean = frame.dropna(how="all")
         if clean.empty:
             return []
-
         points: list[tuple[Any, float]] = []
         columns = list(getattr(clean, "columns", []))
         ordered_columns = ([symbol] if symbol in columns else []) + [
@@ -203,14 +246,27 @@ class OpenBBMacroSource:
             if candidate_points:
                 points = candidate_points
                 break
-
-        # Small dataframe-like test doubles may expose only the final row.
         if not points:
             row = clean.iloc[-1]
             numeric = [(str(key), value) for key, value in row.items()
                        if isinstance(value, Real) and not isinstance(value, bool)]
             if numeric:
                 points = [(clean.index[-1], float(numeric[0][1]))]
+        return points
+
+    @staticmethod
+    def _fetch_symbol(obb: Any, symbol: str) -> list[dict[str, Any]]:
+        start_date = (datetime.now(timezone.utc) - timedelta(days=500)).date().isoformat()
+        try:
+            output = obb.economy.fred_series(
+                symbol=symbol, start_date=start_date, provider="fred")
+        except TypeError:
+            output = obb.economy.fred_series(symbol=symbol, start_date=start_date)
+        try:
+            frame = output.to_dataframe()
+        except AttributeError as exc:
+            raise SourceUnavailable("OpenBB result does not expose to_dataframe()") from exc
+        points = OpenBBMacroSource._frame_points(frame, symbol)
         if not points:
             return []
 

@@ -117,7 +117,7 @@ def main():
     print("Rigorous Macro Research Agent Lab")
     print(f"OpenBB preload: {'READY' if openbb_ready else 'OPTIONAL'} · {openbb_status}")
     print("Open http://127.0.0.1:8011")
-    print("Default: deterministic teaching fixtures · Live: OpenBB + official RSS")
+    print("UI default: CPI Live · OpenBB history + official RSS + OpenAI Responses")
     print("Research only · no trading · every event persists before NDJSON delivery")
     print("Press Ctrl+C to stop.")
     try:

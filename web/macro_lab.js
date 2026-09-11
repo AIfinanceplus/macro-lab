@@ -19,6 +19,7 @@ let running = false;
 let latestEvidence = [];
 let latestQuarantine = [];
 let latestClaims = [];
+let latestCpiAnalysis = null;
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -87,6 +88,7 @@ function resetRunUi() {
   latestEvidence = [];
   latestQuarantine = [];
   latestClaims = [];
+  latestCpiAnalysis = null;
   ui.trace.innerHTML = '<div class="empty-state">等待第一个持久化事件</div>';
   ui.eventDetail.classList.add('hidden');
   ui.eventButton.disabled = true;
@@ -101,7 +103,7 @@ function resetRunUi() {
   $('#contract-json').textContent = '—';
   $('#checkpoint-json').textContent = '—';
   $('#evidence-grid').innerHTML = '';
-  $('#tab-report').innerHTML = '<div class="empty-result"><strong>运行进行中</strong><p>报告必须等待证据、批判与九项门禁完成。</p></div>';
+  $('#tab-report').innerHTML = '<div class="empty-result"><strong>运行进行中</strong><p>数据计算、证据治理、OpenAI 提议与发布门禁正在依次执行。</p></div>';
   renderPrinciples(manifest.principles.map(item => ({...item, passed: null})));
   $$('.agent-card').forEach(item => item.classList.remove('active'));
   $$('.lane-route b').forEach(item => item.classList.remove('hot'));
@@ -110,6 +112,7 @@ function resetRunUi() {
 function payload() {
   maybeRememberKeys();
   return {
+    research_type: $('#research-type').value,
     question: $('#question').value,
     mode: $('#mode').value,
     scenario: $('#scenario').value,
@@ -204,6 +207,7 @@ function applyEvent(event, isResume) {
     latestQuarantine = event.data.quarantined;
     renderEvidence();
   }
+  if (event.type === 'cpi_analysis_completed') latestCpiAnalysis = event.data.analysis;
   if (event.type === 'principles_evaluated') renderPrinciples(event.data.checks);
   if (event.type === 'run_paused') {
     setStatus('warning', 'PAUSED · 可恢复');
@@ -280,14 +284,67 @@ function renderEvidence() {
 function renderReport(report, elapsedMs) {
   latestClaims = report.claims || [];
   renderEvidence();
+  if (report.research_type === 'cpi_deep_dive' && report.cpi_analysis) {
+    renderCpiReport(report, elapsedMs);
+    return;
+  }
   const claims = (report.claims || []).map(claim => `
     <article class="claim"><p>${escapeHtml(claim.text)}</p><div class="citations">${
       (claim.evidence_ids || []).map(id => `<span>${escapeHtml(id)}</span>`).join('')
     }</div></article>`).join('');
   $('#tab-report').innerHTML = `
-    <div class="report-header"><div><h3>Macro Regime Research</h3><p>${escapeHtml(report.executive_summary)}</p></div><span class="outcome ${report.status === 'ABSTAIN' ? 'abstain' : ''}">${escapeHtml(report.status)}</span></div>
+    <div class="report-header"><div><h3>${escapeHtml(report.report_title || 'Macro Regime Research')}</h3><p>${escapeHtml(report.executive_summary)}</p></div><span class="outcome ${report.status === 'ABSTAIN' ? 'abstain' : ''}">${escapeHtml(report.status)}</span></div>
     <div class="claim-list">${claims || '<article class="claim"><p>没有通过发布门禁的研究结论。</p></article>'}</div>
     <div class="report-meta"><span>Confidence ${Number(report.confidence || 0).toFixed(2)}</span><span>${report.research_only ? 'Research only' : ''}</span><span>Automatic execution ${String(report.automatic_execution)}</span><span>Effects ${report.effect_count}</span><span>${elapsedMs} ms</span></div>`;
+}
+
+function metric(value, suffix = '') {
+  return value === null || value === undefined ? '—' : `${Number(value).toFixed(2)}${suffix}`;
+}
+
+function lineChart(points) {
+  if (!points?.length) return '<div class="chart-empty">历史曲线不可用</div>';
+  const width = 760, height = 230, pad = 30;
+  const values = points.flatMap(point => [point.headline, point.core]).filter(Number.isFinite);
+  const min = Math.min(...values) - .25, max = Math.max(...values) + .25;
+  const x = index => pad + index * (width - pad * 2) / Math.max(1, points.length - 1);
+  const y = value => height - pad - (value - min) * (height - pad * 2) / Math.max(.1, max - min);
+  const path = key => points.map((point, index) => Number.isFinite(point[key])
+    ? `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(point[key]).toFixed(1)}` : '').join(' ');
+  const grid = [0, .25, .5, .75, 1].map(ratio => {
+    const value = max - ratio * (max - min), ypos = pad + ratio * (height - pad * 2);
+    return `<line x1="${pad}" y1="${ypos}" x2="${width-pad}" y2="${ypos}"/><text x="2" y="${ypos+3}">${value.toFixed(1)}</text>`;
+  }).join('');
+  return `<svg class="cpi-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Headline and core CPI year over year history">
+    <g class="chart-grid">${grid}</g><path class="headline-line" d="${path('headline')}"/><path class="core-line" d="${path('core')}"/>
+    <g class="chart-legend"><circle cx="${pad}" cy="12" r="4"/><text x="${pad+9}" y="16">Headline YoY</text><circle class="core-dot" cx="${pad+112}" cy="12" r="4"/><text x="${pad+121}" y="16">Core YoY</text></g>
+    <text class="chart-date" x="${pad}" y="${height-4}">${escapeHtml(points[0].date)}</text><text class="chart-date" text-anchor="end" x="${width-pad}" y="${height-4}">${escapeHtml(points.at(-1).date)}</text>
+  </svg>`;
+}
+
+function renderCpiReport(report, elapsedMs) {
+  const analysis = report.cpi_analysis;
+  const headline = analysis.headline || {};
+  const core = analysis.core || {};
+  const factorRows = (analysis.factors || []).map(item => {
+    const strength = Math.min(100, Math.abs(Number(item.acceleration || 0)) * 15 + Math.abs(Number(item.lag_correlation || 0)) * 45);
+    return `<tr><td><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.symbol)} · ${escapeHtml(item.kind)}</small></td><td>${metric(item.yoy, '%')}</td><td>${metric(item.momentum_3m_annualized, '%')}</td><td><span class="signal ${String(item.signal).toLowerCase()}">${escapeHtml(item.signal)}</span></td><td>${metric(item.lag_correlation)} / ${item.best_lag_months}m</td><td><div class="pressure"><i style="width:${strength}%"></i></div></td></tr>`;
+  }).join('');
+  const findings = (report.key_findings || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  const claims = (report.claims || []).map(claim => `<article class="claim"><div class="claim-kind ${String(claim.classification || 'FACT').toLowerCase()}">${escapeHtml(claim.classification || 'FACT')}</div><p>${escapeHtml(claim.text)}</p><div class="citations">${(claim.evidence_ids || []).map(id => `<span>${escapeHtml(id)}</span>`).join('')}</div></article>`).join('');
+  const scenarios = (report.scenario_outlook || []).map(item => `<article class="scenario-card"><span>${escapeHtml(item.probability_band)}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p><ul>${(item.triggers || []).map(trigger => `<li>${escapeHtml(trigger)}</li>`).join('')}</ul></article>`).join('');
+  const methodology = (report.methodology || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  const risks = (report.risks || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  $('#tab-report').innerHTML = `
+    <div class="report-header cpi-report-head"><div><span class="research-kicker">INSTITUTIONAL-STYLE · RESEARCH ONLY · ${escapeHtml(analysis.as_of)}</span><h3>${escapeHtml(report.report_title || '美国 CPI 影响因子专题')}</h3><p>${escapeHtml(report.executive_summary)}</p></div><span class="outcome ${report.status === 'ABSTAIN' ? 'abstain' : ''}">${escapeHtml(report.status)}</span></div>
+    ${report.fixture_disclaimer ? '<div class="fixture-banner">教学历史数据 · 不代表当前市场；切换 Live 才能生成实时专题</div>' : ''}
+    <section class="cpi-hero-metrics"><article><span>Headline YoY</span><strong>${metric(headline.yoy, '%')}</strong><small>${escapeHtml(headline.signal || '')}</small></article><article><span>Headline 3m ann.</span><strong>${metric(headline.momentum_3m_annualized, '%')}</strong><small>短期动量</small></article><article><span>Core YoY</span><strong>${metric(core.yoy, '%')}</strong><small>${escapeHtml(core.signal || '')}</small></article><article><span>Report confidence</span><strong>${metric(Number(report.confidence || 0) * 100, '%')}</strong><small>研究置信度，非概率</small></article></section>
+    <div class="cpi-report-grid"><section class="research-section chart-section"><div class="section-title"><span>01</span><div><h4>通胀轨迹</h4><small>Headline 与 Core · 12个月同比</small></div></div>${lineChart(analysis.inflation_chart)}</section><section class="research-section findings-section"><div class="section-title"><span>02</span><div><h4>核心判断</h4><small>Facts → Inference</small></div></div><ol>${findings}</ol></section></div>
+    <section class="research-section"><div class="section-title"><span>03</span><div><h4>影响因子仪表盘</h4><small>3m 年化动量、0–6 月最强相关与领先期；不等于因果贡献</small></div></div><div class="factor-table-wrap"><table class="factor-table"><thead><tr><th>Factor</th><th>YoY</th><th>3m ann.</th><th>Signal</th><th>Corr / lag</th><th>Pressure</th></tr></thead><tbody>${factorRows}</tbody></table></div></section>
+    <section class="research-section"><div class="section-title"><span>04</span><div><h4>证据化论点</h4><small>每项结论标记事实、推断或情景，并绑定 Evidence ID</small></div></div><div class="claim-list">${claims || '<article class="claim"><p>没有通过发布门禁的研究结论。</p></article>'}</div></section>
+    <section class="research-section"><div class="section-title"><span>05</span><div><h4>三情景展望</h4><small>概率带未校准，不作为投资信号</small></div></div><div class="scenario-grid">${scenarios}</div></section>
+    <div class="cpi-report-grid"><section class="research-section prose-list"><div class="section-title"><span>06</span><div><h4>方法</h4><small>可复算的确定性计算</small></div></div><ul>${methodology}</ul></section><section class="research-section prose-list risks-list"><div class="section-title"><span>07</span><div><h4>局限与反方风险</h4><small>必须披露</small></div></div><ul>${risks}</ul></section></div>
+    <div class="report-meta"><span>OpenAI proposal ${$('#model-mode').value === 'live' ? escapeHtml($('#model-id').value) : 'deterministic'}</span><span>Research only</span><span>Automatic execution false</span><span>Effects ${report.effect_count}</span><span>${elapsedMs} ms</span></div>`;
 }
 
 async function loadCheckpoint() {
@@ -333,11 +390,22 @@ function restoreLocalKeys() {
     $('#fred-key').value = data.fred || '';
     $('#news-key').value = data.news || '';
     $('#model-key').value = data.model || '';
-    $('#model-id').value = data.modelId || 'gpt-5.4-mini';
+    $('#model-id').value = data.modelId || 'gpt-6-astra';
     $('#model-url').value = data.modelUrl || 'https://api.openai.com/v1';
     $('#news-provider').value = data.newsProvider || '';
     $('#remember-keys').checked = true;
   } catch { localStorage.removeItem('macroLabKeys'); }
+}
+
+function updateResearchTemplate() {
+  const cpi = $('#research-type').value === 'cpi_deep_dive';
+  $('#mission-title').textContent = cpi ? 'CPI 影响因子专题 · 机构级研究流程' : '九项严谨通用原则 · 全链路宏观研究';
+  $('#mission-copy').textContent = cpi
+    ? 'OpenBB 历史序列 → 动量与领先滞后 → 证据图 → OpenAI 报告 → 批判验证 → 风险发布'
+    : 'OpenBB 宏观数据 + OpenBB/官方新闻 → 来源治理 → 证据图 → 模型提议 → 批判验证 → 风险发布';
+  $('#question').value = cpi
+    ? '研究美国 CPI 的主要影响因子、当前动量、传导时滞与未来情景。'
+    : 'Assess the current U.S. inflation-growth-policy regime and its key risks.';
 }
 
 ui.runButton.addEventListener('click', run);
@@ -345,6 +413,7 @@ ui.resumeButton.addEventListener('click', resume);
 ui.eventButton.addEventListener('click', () => ui.eventDetail.classList.toggle('hidden'));
 $('#modal-close').addEventListener('click', () => $('#agent-modal').classList.add('hidden'));
 $('#agent-modal').addEventListener('click', event => event.target.id === 'agent-modal' && $('#agent-modal').classList.add('hidden'));
+$('#research-type').addEventListener('change', updateResearchTemplate);
 $$('.tabs button').forEach(button => button.addEventListener('click', () => {
   $$('.tabs button').forEach(item => item.classList.toggle('active', item === button));
   $$('.tab-page').forEach(page => page.classList.toggle('active', page.id === `tab-${button.dataset.tab}`));

@@ -6,6 +6,8 @@ import unittest
 from unittest.mock import patch
 
 from macro_lab.contracts import HandoffEnvelope
+from macro_lab.cpi_research import analyze_cpi, fixture_cpi_history
+from macro_lab.model import OpenAICompatibleModel
 from macro_lab.runtime import MacroResearchRuntime
 from macro_lab.sources import (OpenBBMacroSource, OpenBBNewsSource,
                                SourceUnavailable, preload_openbb)
@@ -27,6 +29,75 @@ class MacroAgentLabTests(unittest.TestCase):
             self.assertEqual(terminal["data"]["report"]["status"], "COMPLETE")
             self.assertTrue(all(check["passed"] for check in terminal["data"]["checks"]))
             self.assertEqual(terminal["data"]["effect_count"], 0)
+
+    def test_cpi_deep_dive_builds_diagnostics_and_institutional_report(self):
+        with TemporaryDirectory() as directory:
+            events = list(self.runtime(directory).run_stream({
+                "research_type": "cpi_deep_dive", "mode": "fixture",
+                "scenario": "baseline", "model_mode": "deterministic",
+            }))
+            analysis_event = next(event for event in events
+                                  if event["type"] == "cpi_analysis_completed")
+            self.assertFalse(analysis_event["data"]["model_used"])
+            self.assertFalse(analysis_event["data"]["causal_claim"])
+            report = events[-1]["data"]["report"]
+            self.assertEqual(report["status"], "COMPLETE")
+            self.assertEqual(report["research_type"], "cpi_deep_dive")
+            self.assertEqual(report["cpi_analysis"]["analysis_version"], "cpi-factor-v1")
+            self.assertEqual(len(report["scenario_outlook"]), 3)
+            self.assertTrue(all(claim["evidence_ids"] for claim in report["claims"]))
+
+    def test_cpi_factor_math_is_reproducible_and_not_labeled_causal(self):
+        analysis = analyze_cpi(fixture_cpi_history())
+        self.assertEqual(len(analysis["inflation_chart"]), 36)
+        self.assertGreaterEqual(len(analysis["factors"]), 8)
+        self.assertTrue(all(0 <= item["best_lag_months"] <= 6
+                            for item in analysis["factors"]))
+        self.assertIn("not causal", " ".join(analysis["methodology"]))
+
+    def test_openai_model_uses_responses_api_and_strict_schema(self):
+        captured = {}
+        model_result = {
+            "output": [{"type": "message", "content": [{
+                "type": "output_text", "text": json.dumps({
+                    "report_title": "CPI report", "executive_summary": "Summary",
+                    "key_findings": ["Finding"],
+                    "claims": [{"text": "Fact", "evidence_ids": ["E-1"],
+                                "classification": "FACT"}],
+                    "factor_assessment": [], "scenario_outlook": [],
+                    "risks": ["Risk"], "methodology": ["Method"], "confidence": 0.7,
+                })
+            }]}]
+        }
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps(model_result).encode()
+
+        def fake_urlopen(request, **kwargs):
+            captured["url"] = request.full_url
+            captured["payload"] = json.loads(request.data)
+            return FakeResponse()
+
+        evidence = [{"evidence_id": "E-1", "title": "CPI", "content": "2.5%",
+                     "publisher": "BLS", "observed_at": "2026-08-01",
+                     "metric": "CPIAUCSL", "value": 2.5, "unit": "percent_yoy"}]
+        with patch("macro_lab.model.urlopen", side_effect=fake_urlopen), \
+             patch("macro_lab.model.system_ssl_context", return_value=None):
+            result = OpenAICompatibleModel().propose(
+                question="Research U.S. CPI factors", evidence=evidence,
+                api_key="request-only-key", model="gpt-6-astra",
+                base_url="https://api.openai.com/v1", research_type="cpi_deep_dive")
+        self.assertEqual(captured["url"], "https://api.openai.com/v1/responses")
+        self.assertTrue(captured["payload"]["text"]["format"]["strict"])
+        self.assertFalse(captured["payload"]["store"])
+        self.assertEqual(result["claims"][0]["classification"], "FACT")
 
     def test_tainted_news_is_quarantined_and_never_cited(self):
         with TemporaryDirectory() as directory:

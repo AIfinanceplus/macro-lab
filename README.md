@@ -2,12 +2,23 @@
 
 这是一个独立、可运行、同时实现九项严谨通用 Agent 原则的参考项目。它不是交易系统，也不会连接券商或产生订单。
 
+## CPI 影响因子专题
+
+默认模板现在是一份机构研究结构的美国 CPI 专题（不冒充或复制任何真实投行品牌）：
+
+- 固定读取 10 条批准序列：Headline/Core CPI、住房、食品、汽油、二手车、工资、PPI、WTI 与广义美元。
+- 先由确定性 CPI Factor Engine 计算八年历史同比、3m 年化动量、z-score 与 0–6 月领先滞后。
+- 再由 OpenAI Responses API 按严格 JSON Schema 生成事实、推断、三情景、方法与风险。
+- 相关性明确标为统计关联，不称为因果贡献；没有动态权重时不称为分项贡献分解。
+- 所有论点绑定 Evidence ID，Critic 与 Governor 校验后才 COMPLETE，否则 ABSTAIN。
+
+UI 提供 Headline/Core 历史图、因子仪表盘、证据化论点、情景卡片，以及包含 CPI Engine 的 27 模块 3D 架构图。
+
 ## 数据边界
 
-- 教学模式使用确定性快照，不代表当前市场。
+- 教学模式使用确定性八年历史，不代表当前市场。
 - Live 模式通过 OpenBB ODP 读取 FRED 宏观序列。
-- CPI 使用 `CPIAUCSL` 最近 13 个有效月度观测计算 12 个月同比，而不是把
-  CPI 指数水平误当成通胀百分比。
+- CPI 专题使用八年历史；同比按 12 个月指数变化计算，3m 动量按复合变化年化。
 - Live 新闻同时尝试 OpenBB `news.world` 与 Federal Reserve、BLS、BEA
   的官方 RSS。
 - OpenBB 或新闻源失败时不会用教学数据静默冒充 Live 数据；证据不足则
@@ -65,8 +76,12 @@ python3 serve_macro_lab.py
 ```
 
 API Key 可以在本地 UI 的 Live 设置中输入。后端不把 Key 写入 Trace、
-Checkpoint 或长期记忆。勾选“仅保存在当前浏览器”时，Key 只进入浏览器
+Checkpoint 或长期记忆。勾选“记住在本机浏览器”时，Key 只进入浏览器
 `localStorage`；共享电脑不应勾选。
+
+OpenAI 使用官方 Responses API 与 `text.format` JSON Schema。默认 `gpt-6-astra`，
+也可选择 `gpt-5.6-terra` 或 `gpt-5.6-luna`。不要把 Key 发到聊天、截图或 GitHub；
+只在本地 UI 的密码框粘贴。
 
 OpenBB 新闻可选择 Benzinga、FMP、Intrinio 或 Tiingo，并输入对应的一次性
 provider Key；不配置时官方 RSS 仍会独立运行，若证据不够则安全 `ABSTAIN`。
