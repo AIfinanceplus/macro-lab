@@ -7,7 +7,8 @@ from unittest.mock import patch
 
 from macro_lab.contracts import HandoffEnvelope
 from macro_lab.cpi_research import analyze_cpi, fixture_cpi_history
-from macro_lab.model import OpenAICompatibleModel
+from macro_lab.model import (OpenAICompatibleModel,
+                             deterministic_cpi_proposal)
 from macro_lab.runtime import MacroResearchRuntime
 from macro_lab.sources import (OpenBBMacroSource, OpenBBNewsSource,
                                SourceUnavailable, preload_openbb)
@@ -45,6 +46,10 @@ class MacroAgentLabTests(unittest.TestCase):
             self.assertEqual(report["research_type"], "cpi_deep_dive")
             self.assertEqual(report["cpi_analysis"]["analysis_version"], "cpi-factor-v1")
             self.assertEqual(len(report["scenario_outlook"]), 3)
+            self.assertEqual(report["report_version"], "institutional-macro-v2")
+            self.assertEqual(len(report["forecast_path"]), 4)
+            self.assertGreaterEqual(len(report["counterarguments"]), 3)
+            self.assertGreaterEqual(len(report["monitor_table"]), 5)
             self.assertTrue(all(claim["evidence_ids"] for claim in report["claims"]))
 
     def test_cpi_factor_math_is_reproducible_and_not_labeled_causal(self):
@@ -99,8 +104,31 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertEqual(captured["url"], "https://api.openai.com/v1/responses")
         self.assertTrue(captured["payload"]["text"]["format"]["strict"])
         self.assertFalse(captured["payload"]["store"])
+        self.assertEqual(captured["payload"]["max_output_tokens"], 12_000)
+        schema = captured["payload"]["text"]["format"]["schema"]
+        self.assertIn("forecast_path", schema["required"])
+        self.assertIn("counterarguments", schema["required"])
+        self.assertIn("monitor_table", schema["required"])
         self.assertEqual(captured["timeout"], 180)
         self.assertEqual(result["claims"][0]["classification"], "FACT")
+
+    def test_live_cpi_shallow_draft_fails_institutional_depth_gate(self):
+        def shallow_proposal(**kwargs):
+            return deterministic_cpi_proposal(kwargs["evidence"], kwargs["analysis"])
+
+        with TemporaryDirectory() as directory, \
+             patch("macro_lab.runtime.OpenAICompatibleModel.propose",
+                   side_effect=shallow_proposal):
+            events = list(self.runtime(directory).run_stream({
+                "research_type": "cpi_deep_dive", "mode": "fixture",
+                "model_mode": "live", "model_api_key": "request-only-key",
+                "model_timeout_seconds": 30,
+            }))
+        verification = next(event for event in events
+                            if event["type"] == "verification_completed")
+        self.assertIn("claims_depth_insufficient", verification["data"]["reasons"])
+        self.assertIn("key_findings_depth_insufficient", verification["data"]["reasons"])
+        self.assertEqual(events[-1]["data"]["report"]["status"], "ABSTAIN")
 
     def test_model_failure_is_visible_in_final_report_without_secret(self):
         with TemporaryDirectory() as directory:
@@ -330,7 +358,9 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertIn("Resume from checkpoint", html)
         self.assertIn("OpenAI 原始草稿", html)
         self.assertIn('id="model-timeout"', html)
+        self.assertIn('value="300" selected', html)
         self.assertIn("model_started", js)
+        self.assertIn("Exhibit 12", js)
         self.assertIn("event belongs to another run", js)
         self.assertIn("↻ Run again", js)
         self.assertIn("Print / Save PDF", js)

@@ -427,7 +427,17 @@ class MacroResearchRuntime:
                     citation_ids.extend(ids)
                     if claim.get("classification") not in {"FACT", "INFERENCE", "SCENARIO"}:
                         reasons.append("claim_classification_invalid")
-            for section in ("factor_assessment", "scenario_outlook"):
+            thesis = proposal.get("central_thesis", {})
+            thesis_ids = thesis.get("evidence_ids") if isinstance(thesis, dict) else None
+            if thesis and (not isinstance(thesis_ids, list) or not thesis_ids):
+                reasons.append("central_thesis_citation_invalid")
+            elif thesis_ids:
+                citation_ids.extend(thesis_ids)
+            cited_sections = (
+                "factor_assessment", "historical_context", "forecast_path",
+                "scenario_outlook", "counterarguments", "monitor_table", "source_notes",
+            )
+            for section in cited_sections:
                 rows = proposal.get(section, [])
                 if not isinstance(rows, list):
                     reasons.append(f"{section}_invalid")
@@ -438,6 +448,25 @@ class MacroResearchRuntime:
                         reasons.append(f"{section}_citation_invalid")
                     else:
                         citation_ids.extend(ids)
+            if state.get("research_type") == "cpi_deep_dive" and \
+                    state.get("model_mode") == "live":
+                depth_minimums = {
+                    "key_findings": 5, "claims": 8, "factor_assessment": 5,
+                    "historical_context": 2, "forecast_path": 4,
+                    "scenario_outlook": 3, "counterarguments": 3,
+                    "monitor_table": 5, "methodology": 4, "risks": 4,
+                }
+                if proposal.get("report_version") != "institutional-macro-v2":
+                    reasons.append("institutional_report_version_missing")
+                for section, minimum in depth_minimums.items():
+                    rows = proposal.get(section)
+                    if not isinstance(rows, list) or len(rows) < minimum:
+                        reasons.append(f"{section}_depth_insufficient")
+                narrative_chars = sum(
+                    len(value) for value in MacroResearchRuntime._all_strings(proposal)
+                    if not value.startswith(("EV-", "CAND-")))
+                if narrative_chars < 2_800:
+                    reasons.append("report_narrative_depth_insufficient")
             if not set(citation_ids).issubset(evidence_ids):
                 reasons.append("unknown_or_quarantined_citation")
             if set(citation_ids) & quarantined_ids:
@@ -458,6 +487,17 @@ class MacroResearchRuntime:
             "independent_publishers": len(publishers), "sufficient_evidence": sufficient,
             "contradictions": state.get("contradictions", []),
         }
+
+    @staticmethod
+    def _all_strings(value: Any) -> Iterator[str]:
+        if isinstance(value, str):
+            yield value
+        elif isinstance(value, dict):
+            for item in value.values():
+                yield from MacroResearchRuntime._all_strings(item)
+        elif isinstance(value, list):
+            for item in value:
+                yield from MacroResearchRuntime._all_strings(item)
 
     def _principle_checks(self, state: dict[str, Any], *, elapsed_ms: float) -> list[dict[str, Any]]:
         contract = state["contract"]

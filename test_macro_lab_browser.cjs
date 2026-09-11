@@ -38,6 +38,10 @@ const {chromium} = require('playwright');
     assert.ok((await page.locator('.trace-event').count()) >= 20);
     assert.equal(await page.locator('.cpi-hero-metrics').count(), 1);
     assert.equal(await page.locator('.scenario-card').count(), 3);
+    assert.equal(await page.locator('.forecast-chart').count(), 1);
+    assert.equal(await page.locator('.history-grid article').count(), 3);
+    assert.equal(await page.locator('.counter-grid article').count(), 3);
+    assert.ok((await page.locator('.source-notes li').count()) >= 8);
     assert.equal(pageErrors.length, 0, pageErrors.join('\n'));
     if (process.env.SCREENSHOT_PATH) {
       await page.screenshot({path: process.env.SCREENSHOT_PATH, fullPage: true});

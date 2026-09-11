@@ -344,6 +344,28 @@ function lineChart(points) {
   </svg>`;
 }
 
+function forecastChart(rows, headline, core) {
+  if (!rows?.length) return '<div class="chart-empty">模型情景路径不可用</div>';
+  const width = 760, height = 230, pad = 34;
+  const points = [
+    {horizon: 'Current', headline: Number(headline), core: Number(core)},
+    ...rows.map(row => ({horizon: row.horizon, headline: Number(row.headline_cpi_yoy),
+      core: Number(row.core_cpi_yoy), low: Number(row.range_low), high: Number(row.range_high)})),
+  ];
+  const values = points.flatMap(point => [point.headline, point.core, point.low, point.high]).filter(Number.isFinite);
+  const min = Math.min(...values) - .2, max = Math.max(...values) + .2;
+  const x = index => pad + index * (width - pad * 2) / Math.max(1, points.length - 1);
+  const y = value => height - pad - (value - min) * (height - pad * 2) / Math.max(.1, max - min);
+  const path = key => points.map((point, index) => Number.isFinite(point[key])
+    ? `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(point[key]).toFixed(1)}` : '').join(' ');
+  const band = points.slice(1).filter(point => Number.isFinite(point.low) && Number.isFinite(point.high));
+  const bandPath = band.length ? `${band.map((point, index) => `${index ? 'L' : 'M'}${x(index + 1)},${y(point.high)}`).join(' ')} ${band.slice().reverse().map((point, index) => `L${x(band.length - index)},${y(point.low)}`).join(' ')} Z` : '';
+  const labels = points.map((point, index) => `<text x="${x(index)}" y="${height-7}" text-anchor="middle">${escapeHtml(point.horizon)}</text>`).join('');
+  return `<svg class="cpi-chart forecast-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Scenario forecast path for headline and core CPI">
+    <path class="forecast-band" d="${bandPath}"/><path class="headline-line" d="${path('headline')}"/><path class="core-line" d="${path('core')}"/>
+    <g class="forecast-labels">${labels}</g><g class="chart-legend"><circle cx="${pad}" cy="12" r="4"/><text x="${pad+9}" y="16">Headline scenario</text><circle class="core-dot" cx="${pad+132}" cy="12" r="4"/><text x="${pad+141}" y="16">Core scenario</text></g></svg>`;
+}
+
 function renderCpiReport(report, elapsedMs) {
   lastReportTitle = report.report_title || '美国 CPI 影响因子专题';
   const analysis = report.cpi_analysis;
@@ -355,20 +377,33 @@ function renderCpiReport(report, elapsedMs) {
   }).join('');
   const findings = (report.key_findings || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const claims = (report.claims || []).map(claim => `<article class="claim"><div class="claim-kind ${String(claim.classification || 'FACT').toLowerCase()}">${escapeHtml(claim.classification || 'FACT')}</div><p>${escapeHtml(claim.text)}</p><div class="citations">${(claim.evidence_ids || []).map(id => `<span>${escapeHtml(id)}</span>`).join('')}</div></article>`).join('');
-  const scenarios = (report.scenario_outlook || []).map(item => `<article class="scenario-card"><span>${escapeHtml(item.probability_band)}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p><ul>${(item.triggers || []).map(trigger => `<li>${escapeHtml(trigger)}</li>`).join('')}</ul></article>`).join('');
+  const scenarios = (report.scenario_outlook || []).map(item => `<article class="scenario-card"><span>${escapeHtml(item.probability_band)}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p><b>Forecast implication</b><p>${escapeHtml(item.forecast_implication || '')}</p><b>Assumptions</b><ul>${(item.assumptions || []).map(value => `<li>${escapeHtml(value)}</li>`).join('')}</ul><b>Triggers</b><ul>${(item.triggers || []).map(value => `<li>${escapeHtml(value)}</li>`).join('')}</ul><b>Invalidation</b><ul>${(item.invalidation || []).map(value => `<li>${escapeHtml(value)}</li>`).join('')}</ul></article>`).join('');
+  const thesis = report.central_thesis || {};
+  const history = (report.historical_context || []).map(item => `<article><h5>${escapeHtml(item.title)}</h5><p>${escapeHtml(item.analysis)}</p><div class="citations">${(item.evidence_ids || []).map(id => `<span>${escapeHtml(id)}</span>`).join('')}</div></article>`).join('');
+  const forecastRows = (report.forecast_path || []).map(item => `<tr><td><strong>${escapeHtml(item.horizon)}</strong><small>${escapeHtml(item.classification || 'SCENARIO')}</small></td><td>${metric(item.headline_cpi_yoy, '%')}</td><td>${metric(item.core_cpi_yoy, '%')}</td><td>${metric(item.range_low, '%')}–${metric(item.range_high, '%')}</td><td>${(item.key_drivers || []).map(escapeHtml).join(' · ')}</td></tr>`).join('');
+  const counterarguments = (report.counterarguments || []).map(item => `<article><h5>${escapeHtml(item.argument)}</h5><p>${escapeHtml(item.assessment)}</p><strong>改变判断的条件</strong><small>${escapeHtml(item.what_changes_the_view)}</small><div class="citations">${(item.evidence_ids || []).map(id => `<span>${escapeHtml(id)}</span>`).join('')}</div></article>`).join('');
+  const monitorRows = (report.monitor_table || []).map(item => `<tr><td><strong>${escapeHtml(item.indicator)}</strong></td><td><span class="signal">${escapeHtml(item.current_signal)}</span></td><td>${escapeHtml(item.why_it_matters)}</td><td>${escapeHtml(item.trigger)}</td></tr>`).join('');
+  const sourceNotes = (report.source_notes || []).map(item => `<li><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.analysis)}</span><small>${(item.evidence_ids || []).map(escapeHtml).join(' · ')}</small></li>`).join('');
+  const dataQuality = (report.data_quality || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const methodology = (report.methodology || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const risks = (report.risks || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   $('#tab-report').innerHTML = `<article class="institutional-report" id="printable-report">
     <div class="report-masthead"><div><b>M9 MACRO RESEARCH</b><span>U.S. Inflation Strategy · Independent research system</span></div><button class="pdf-button" data-export-pdf>⇩ Print / Save PDF</button></div>
-    <div class="report-header cpi-report-head"><div><span class="research-kicker">INSTITUTIONAL-STYLE · RESEARCH ONLY · ${escapeHtml(analysis.as_of)}</span><h3>${escapeHtml(report.report_title || '美国 CPI 影响因子专题')}</h3><p>${escapeHtml(report.executive_summary)}</p></div><span class="outcome ${report.status === 'ABSTAIN' ? 'abstain' : ''}">${escapeHtml(report.status)}</span></div>
+    <div class="report-header cpi-report-head"><div><span class="research-kicker">INSTITUTIONAL RESEARCH v2 · RESEARCH ONLY · ${escapeHtml(analysis.as_of)}</span><h3>${escapeHtml(report.report_title || '美国 CPI 影响因子专题')}</h3><h4>${escapeHtml(report.report_subtitle || '')}</h4><p>${escapeHtml(report.executive_summary)}</p></div><span class="outcome ${report.status === 'ABSTAIN' ? 'abstain' : ''}">${escapeHtml(report.status)}</span></div>
     ${report.model_error ? `<div class="publication-block"><strong>OPENAI 草稿未生成，报告已 ABSTAIN</strong><p>${escapeHtml(report.model_error)}</p><small>下方数值是确定性 CPI Engine 输出，不是大模型语言。切换到“OpenAI 原始草稿”查看诊断。</small></div>` : ''}
     ${report.fixture_disclaimer ? '<div class="fixture-banner">教学历史数据 · 不代表当前市场；切换 Live 才能生成实时专题</div>' : ''}
     <section class="cpi-hero-metrics"><article><span>Headline YoY</span><strong>${metric(headline.yoy, '%')}</strong><small>${escapeHtml(headline.signal || '')}</small></article><article><span>Headline 3m ann.</span><strong>${metric(headline.momentum_3m_annualized, '%')}</strong><small>短期动量</small></article><article><span>Core YoY</span><strong>${metric(core.yoy, '%')}</strong><small>${escapeHtml(core.signal || '')}</small></article><article><span>Report confidence</span><strong>${metric(Number(report.confidence || 0) * 100, '%')}</strong><small>研究置信度，非概率</small></article></section>
-    <div class="cpi-report-grid"><section class="research-section chart-section"><div class="section-title"><span>01</span><div><h4>通胀轨迹</h4><small>Headline 与 Core · 12个月同比</small></div></div>${lineChart(analysis.inflation_chart)}</section><section class="research-section findings-section"><div class="section-title"><span>02</span><div><h4>核心判断</h4><small>Facts → Inference</small></div></div><ol>${findings}</ol></section></div>
-    <section class="research-section"><div class="section-title"><span>03</span><div><h4>影响因子仪表盘</h4><small>3m 年化动量、0–6 月最强相关与领先期；不等于因果贡献</small></div></div><div class="factor-table-wrap"><table class="factor-table"><thead><tr><th>Factor</th><th>YoY</th><th>3m ann.</th><th>Signal</th><th>Corr / lag</th><th>Pressure</th></tr></thead><tbody>${factorRows}</tbody></table></div></section>
-    <section class="research-section"><div class="section-title"><span>04</span><div><h4>证据化论点</h4><small>每项结论标记事实、推断或情景，并绑定 Evidence ID</small></div></div><div class="claim-list">${claims || '<article class="claim"><p>没有通过发布门禁的研究结论。</p></article>'}</div></section>
-    <section class="research-section"><div class="section-title"><span>05</span><div><h4>三情景展望</h4><small>概率带未校准，不作为投资信号</small></div></div><div class="scenario-grid">${scenarios}</div></section>
-    <div class="cpi-report-grid"><section class="research-section prose-list"><div class="section-title"><span>06</span><div><h4>方法</h4><small>可复算的确定性计算</small></div></div><ul>${methodology}</ul></section><section class="research-section prose-list risks-list"><div class="section-title"><span>07</span><div><h4>局限与反方风险</h4><small>必须披露</small></div></div><ul>${risks}</ul></section></div>
+    <section class="research-section thesis-section"><div class="section-title"><span>01</span><div><h4>中央判断</h4><small>当前状态 → 周期驱动 → 结构驱动 → Bottom line</small></div></div><p class="thesis-lead">${escapeHtml(thesis.current_state || '')}</p><div class="thesis-columns"><div><b>周期驱动</b><ul>${(thesis.cyclical_drivers || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div><div><b>结构驱动</b><ul>${(thesis.structural_drivers || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div></div><blockquote>${escapeHtml(thesis.bottom_line || '')}</blockquote></section>
+    <div class="cpi-report-grid"><section class="research-section chart-section"><div class="section-title"><span>02</span><div><h4>Exhibit 1 · 通胀轨迹</h4><small>Headline 与 Core · 12个月同比</small></div></div>${lineChart(analysis.inflation_chart)}</section><section class="research-section findings-section"><div class="section-title"><span>03</span><div><h4>Exhibit 2 · 核心判断</h4><small>Facts → Inference</small></div></div><ol>${findings}</ol></section></div>
+    <section class="research-section"><div class="section-title"><span>04</span><div><h4>Exhibit 3 · 影响因子仪表盘</h4><small>3m 年化动量、0–6 月最强相关与领先期；不等于因果贡献</small></div></div><div class="factor-table-wrap"><table class="factor-table"><thead><tr><th>Factor</th><th>YoY</th><th>3m ann.</th><th>Signal</th><th>Corr / lag</th><th>Pressure</th></tr></thead><tbody>${factorRows}</tbody></table></div></section>
+    <section class="research-section"><div class="section-title"><span>05</span><div><h4>Exhibit 4 · 证据化论点</h4><small>每项结论标记事实、推断或情景，并绑定 Evidence ID</small></div></div><div class="claim-list">${claims || '<article class="claim"><p>没有通过发布门禁的研究结论。</p></article>'}</div></section>
+    <section class="research-section"><div class="section-title"><span>06</span><div><h4>Exhibit 5 · 四季度条件路径</h4><small>模型情景，不是确定性预测；阴影为条件区间</small></div></div>${forecastChart(report.forecast_path, headline.yoy, core.yoy)}<div class="factor-table-wrap"><table class="factor-table outlook-table"><thead><tr><th>Horizon</th><th>Headline</th><th>Core</th><th>Range</th><th>Drivers</th></tr></thead><tbody>${forecastRows}</tbody></table></div></section>
+    <section class="research-section"><div class="section-title"><span>07</span><div><h4>Exhibit 6 · 三情景展望</h4><small>假设、触发条件与失效条件必须可监测</small></div></div><div class="scenario-grid">${scenarios}</div></section>
+    <section class="research-section"><div class="section-title"><span>08</span><div><h4>Exhibit 7 · 历史框架</h4><small>当前读数放回样本分布与制度环境中解释</small></div></div><div class="history-grid">${history}</div></section>
+    <section class="research-section"><div class="section-title"><span>09</span><div><h4>Exhibit 8 · 反方论证</h4><small>主动寻找推翻中央判断的证据</small></div></div><div class="counter-grid">${counterarguments}</div></section>
+    <section class="research-section"><div class="section-title"><span>10</span><div><h4>Exhibit 9 · 监测与触发表</h4><small>哪些新信息会改变判断</small></div></div><div class="factor-table-wrap"><table class="factor-table monitor-table"><thead><tr><th>Indicator</th><th>Signal</th><th>Why it matters</th><th>Change trigger</th></tr></thead><tbody>${monitorRows}</tbody></table></div></section>
+    <div class="cpi-report-grid"><section class="research-section prose-list"><div class="section-title"><span>11</span><div><h4>Exhibit 10 · 方法</h4><small>可复算的确定性计算</small></div></div><ul>${methodology}</ul></section><section class="research-section prose-list risks-list"><div class="section-title"><span>12</span><div><h4>Exhibit 11 · 风险与局限</h4><small>必须披露</small></div></div><ul>${risks}${dataQuality}</ul></section></div>
+    <section class="research-section source-notes"><div class="section-title"><span>13</span><div><h4>Exhibit 12 · 来源与数据注释</h4><small>每项材料回链到 Evidence Graph</small></div></div><ol>${sourceNotes}</ol></section>
     <div class="report-meta"><span>OpenAI proposal ${report.model_mode === 'live' ? escapeHtml($('#model-id').value) : 'deterministic'}</span><span>Research only</span><span>Automatic execution false</span><span>Effects ${report.effect_count}</span><span>${elapsedMs} ms</span></div>
     <footer class="research-disclaimer">This material is generated for research and education. Statistical association is not causation, and no content is investment advice.</footer></article>`;
 }
@@ -426,7 +461,7 @@ function restoreLocalKeys() {
     $('#model-key').value = data.model || '';
     $('#model-id').value = data.modelId || 'gpt-6-astra';
     $('#model-url').value = data.modelUrl || 'https://api.openai.com/v1';
-    $('#model-timeout').value = data.modelTimeout || '180';
+    $('#model-timeout').value = data.modelTimeout || '300';
     $('#news-provider').value = data.newsProvider || '';
     $('#remember-keys').checked = true;
   } catch { localStorage.removeItem('macroLabKeys'); }
