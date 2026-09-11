@@ -83,6 +83,7 @@ class MacroAgentLabTests(unittest.TestCase):
         def fake_urlopen(request, **kwargs):
             captured["url"] = request.full_url
             captured["payload"] = json.loads(request.data)
+            captured["timeout"] = kwargs["timeout"]
             return FakeResponse()
 
         evidence = [{"evidence_id": "E-1", "title": "CPI", "content": "2.5%",
@@ -93,10 +94,12 @@ class MacroAgentLabTests(unittest.TestCase):
             result = OpenAICompatibleModel().propose(
                 question="Research U.S. CPI factors", evidence=evidence,
                 api_key="request-only-key", model="gpt-6-astra",
-                base_url="https://api.openai.com/v1", research_type="cpi_deep_dive")
+                base_url="https://api.openai.com/v1", research_type="cpi_deep_dive",
+                timeout_seconds=180)
         self.assertEqual(captured["url"], "https://api.openai.com/v1/responses")
         self.assertTrue(captured["payload"]["text"]["format"]["strict"])
         self.assertFalse(captured["payload"]["store"])
+        self.assertEqual(captured["timeout"], 180)
         self.assertEqual(result["claims"][0]["classification"], "FACT")
 
     def test_model_failure_is_visible_in_final_report_without_secret(self):
@@ -107,6 +110,11 @@ class MacroAgentLabTests(unittest.TestCase):
             }))
             rejected = next(event for event in events
                             if event["type"] == "model_proposal_rejected")
+            started = next(event for event in events if event["type"] == "model_started")
+            contract = next(event for event in events if event["type"] == "contract_compiled")
+            self.assertEqual(started["data"]["timeout_seconds"], 180)
+            self.assertFalse(started["data"]["automatic_retry"])
+            self.assertEqual(contract["data"]["budget"]["deadline_ms"], 240_000)
             self.assertEqual(rejected["data"]["model_error"],
                              "model API key is required")
             report = events[-1]["data"]["report"]
@@ -321,6 +329,8 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertIn("9-PRINCIPLE CONFORMANCE", html)
         self.assertIn("Resume from checkpoint", html)
         self.assertIn("OpenAI 原始草稿", html)
+        self.assertIn('id="model-timeout"', html)
+        self.assertIn("model_started", js)
         self.assertIn("event belongs to another run", js)
         self.assertIn("↻ Run again", js)
         self.assertIn("Print / Save PDF", js)

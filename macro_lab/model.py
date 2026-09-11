@@ -38,9 +38,12 @@ class OpenAICompatibleModel:
     def propose(self, *, question: str, evidence: list[dict[str, Any]],
                 api_key: str, model: str, base_url: str,
                 research_type: str = "macro_regime",
-                analysis: dict[str, Any] | None = None) -> dict[str, Any]:
+                analysis: dict[str, Any] | None = None,
+                timeout_seconds: int = 180) -> dict[str, Any]:
         if not api_key:
             raise ModelProposalError("model API key is required")
+        if not 30 <= timeout_seconds <= 300:
+            raise ModelProposalError("model timeout must be between 30 and 300 seconds")
         parsed = urlparse(base_url)
         if parsed.scheme != "https" and parsed.hostname not in {"127.0.0.1", "localhost"}:
             raise ModelProposalError("model endpoint must use HTTPS or localhost")
@@ -123,7 +126,8 @@ class OpenAICompatibleModel:
             "Accept": "application/json", "User-Agent": "rigorous-macro-agent-lab/0.1",
         })
         try:
-            with urlopen(request, timeout=30, context=system_ssl_context()) as response:
+            with urlopen(request, timeout=timeout_seconds,
+                         context=system_ssl_context()) as response:
                 result = json.loads(response.read().decode("utf-8"))
             content = result.get("output_text")
             if not content:

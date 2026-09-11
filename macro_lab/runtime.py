@@ -80,7 +80,9 @@ class MacroResearchRuntime:
                          "研究运行已创建；Runtime 尚未授权任何工具。",
                          {"mode": state["mode"], "scenario": state["scenario"]})
         try:
-            contract = ContractCompiler.compile(state["question"])
+            deadline_ms = (state["model_timeout_seconds"] * 1000 + 60_000
+                           if state["model_mode"] == "live" else 30_000)
+            contract = ContractCompiler.compile(state["question"], deadline_ms=deadline_ms)
             state["contract"] = contract.to_dict()
             state["stage"] = "contract_compiled"
             state["status"] = "RUNNING"
@@ -169,6 +171,15 @@ class MacroResearchRuntime:
         state["model_mode"] = model_mode
         model_error = None
         if model_mode == "live":
+            timeout_seconds = int(request.get(
+                "model_timeout_seconds", state["model_timeout_seconds"]))
+            state["model_timeout_seconds"] = timeout_seconds
+            yield self._emit(
+                state, "model_started", "macro_analyst", "decision", "A1",
+                f"OpenAI 正在生成研究草稿；Runtime 最多等待 {timeout_seconds} 秒。",
+                {"model": str(request.get("model", "gpt-6-astra")),
+                 "timeout_seconds": timeout_seconds, "model_calls": 1,
+                 "automatic_retry": False, "api_key_persisted": False})
             try:
                 proposal = OpenAICompatibleModel().propose(
                     question=state["question"], evidence=state["evidence"],
@@ -176,6 +187,7 @@ class MacroResearchRuntime:
                     model=str(request.get("model", "gpt-6-astra")),
                     base_url=str(request.get("model_base_url", "https://api.openai.com/v1")),
                     research_type=state["research_type"], analysis=state.get("cpi_analysis"),
+                    timeout_seconds=timeout_seconds,
                 )
             except ModelProposalError as exc:
                 proposal, model_error = None, str(exc)
@@ -512,6 +524,12 @@ class MacroResearchRuntime:
         research_type = str(request.get("research_type", "macro_regime"))
         if research_type not in {"macro_regime", "cpi_deep_dive"}:
             raise ValueError("unsupported research_type")
+        try:
+            model_timeout_seconds = int(request.get("model_timeout_seconds", 180))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("model_timeout_seconds must be an integer") from exc
+        if not 30 <= model_timeout_seconds <= 300:
+            raise ValueError("model_timeout_seconds must be between 30 and 300")
         return {
             "schema_version": 1, "run_id": run_id, "trace_id": f"TRACE-{run_id}",
             "sequence": 0, "status": "CREATED", "stage": "created",
@@ -522,6 +540,7 @@ class MacroResearchRuntime:
             "mode": mode, "scenario": scenario,
             "research_type": research_type, "cpi_analysis": None,
             "model_mode": str(request.get("model_mode", "deterministic")),
+            "model_timeout_seconds": model_timeout_seconds,
             "contract": None, "plan": [], "candidates": [], "evidence": [],
             "quarantine": [], "contradictions": [], "tool_calls": [], "handoffs": [], "source_errors": [],
             "proposal": None, "verification": None, "report": None,

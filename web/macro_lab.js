@@ -125,6 +125,7 @@ function payload() {
     model_api_key: $('#model-key').value,
     model: $('#model-id').value,
     model_base_url: $('#model-url').value,
+    model_timeout_seconds: Number($('#model-timeout').value),
   };
 }
 
@@ -210,6 +211,7 @@ function applyEvent(event, isResume) {
     renderEvidence();
   }
   if (event.type === 'cpi_analysis_completed') latestCpiAnalysis = event.data.analysis;
+  if (event.type === 'model_started') renderModelWaiting(event.data);
   if (event.type === 'model_proposal_created') renderModelDraft(event.data.proposal, null, event.data.model_mode);
   if (event.type === 'model_proposal_rejected') renderModelDraft(null, event.data.model_error, event.data.model_mode);
   if (event.type === 'principles_evaluated') renderPrinciples(event.data.checks);
@@ -314,6 +316,10 @@ function renderModelDraft(proposal, error, mode) {
   $('#model-draft').innerHTML = `<article class="model-draft-view"><header><div><span>UNPUBLISHED MODEL DRAFT</span><h3>${escapeHtml(proposal.report_title || 'OpenAI Research Draft')}</h3></div><b>${escapeHtml(mode || 'live')}</b></header><section><h4>模型实际输出的摘要</h4><p>${escapeHtml(proposal.executive_summary)}</p></section><section><h4>模型实际输出的论点</h4><ol>${claims}</ol></section><details><summary>查看完整 Structured Output JSON</summary><pre>${escapeHtml(pretty(proposal))}</pre></details><footer>草稿必须经过 Citation、Evidence、Critic、SLO 与九项原则门禁，才会进入最终 PDF。</footer></article>`;
 }
 
+function renderModelWaiting(data) {
+  $('#model-draft').innerHTML = `<article class="model-waiting"><div class="model-pulse" aria-hidden="true"></div><span>OPENAI RESPONSES API · GENERATING</span><h3>模型正在撰写可验证的中文研究草稿</h3><p>${escapeHtml(data.model)} · 最长等待 ${escapeHtml(data.timeout_seconds)} 秒</p><div><b>请求仍在处理中</b><small>页面会保持流式运行；不会自动重试，也不会把 API Key 写入 Trace。</small></div></article>`;
+}
+
 function metric(value, suffix = '') {
   return value === null || value === undefined ? '—' : `${Number(value).toFixed(2)}${suffix}`;
 }
@@ -402,6 +408,7 @@ function maybeRememberKeys() {
     localStorage.setItem('macroLabKeys', JSON.stringify({
       fred: $('#fred-key').value, news: $('#news-key').value, model: $('#model-key').value,
       modelId: $('#model-id').value, modelUrl: $('#model-url').value,
+      modelTimeout: $('#model-timeout').value,
       newsProvider: $('#news-provider').value,
     }));
   } else {
@@ -419,6 +426,7 @@ function restoreLocalKeys() {
     $('#model-key').value = data.model || '';
     $('#model-id').value = data.modelId || 'gpt-6-astra';
     $('#model-url').value = data.modelUrl || 'https://api.openai.com/v1';
+    $('#model-timeout').value = data.modelTimeout || '180';
     $('#news-provider').value = data.newsProvider || '';
     $('#remember-keys').checked = true;
   } catch { localStorage.removeItem('macroLabKeys'); }

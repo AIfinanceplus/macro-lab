@@ -54,7 +54,8 @@ class ContractCompiler:
 
     @classmethod
     def compile(cls, question: str, *, max_sources: int = 12,
-                max_model_calls: int = 1) -> TaskContract:
+                max_model_calls: int = 1,
+                deadline_ms: int = 30_000) -> TaskContract:
         cleaned = " ".join((question or "").split())
         if len(cleaned) < 12:
             raise ValueError("research question must contain at least 12 characters")
@@ -78,7 +79,7 @@ class ContractCompiler:
                 "freshness_and_provenance_required",
             ),
             "budget": {"max_sources": max_sources, "max_model_calls": max_model_calls,
-                       "max_replans": 1, "deadline_ms": 30_000},
+                       "max_replans": 1, "deadline_ms": deadline_ms},
             "allowed_effects": ("PURE", "READ"),
             "forbidden_effects": ("WRITE", "FINANCIAL", "IRREVERSIBLE"),
             "abstain_conditions": (
