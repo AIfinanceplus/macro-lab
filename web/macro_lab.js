@@ -20,6 +20,7 @@ let latestEvidence = [];
 let latestQuarantine = [];
 let latestClaims = [];
 let latestCpiAnalysis = null;
+let lastReportTitle = 'Macro Research Report';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>'"]/g, ch => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
@@ -103,6 +104,7 @@ function resetRunUi() {
   $('#contract-json').textContent = '—';
   $('#checkpoint-json').textContent = '—';
   $('#evidence-grid').innerHTML = '';
+  $('#model-draft').innerHTML = '<div class="empty-result"><strong>等待 OpenAI 输出</strong><p>模型草稿将在 A1 阶段显示；它还不是最终发布报告。</p></div>';
   $('#tab-report').innerHTML = '<div class="empty-result"><strong>运行进行中</strong><p>数据计算、证据治理、OpenAI 提议与发布门禁正在依次执行。</p></div>';
   renderPrinciples(manifest.principles.map(item => ({...item, passed: null})));
   $$('.agent-card').forEach(item => item.classList.remove('active'));
@@ -208,6 +210,8 @@ function applyEvent(event, isResume) {
     renderEvidence();
   }
   if (event.type === 'cpi_analysis_completed') latestCpiAnalysis = event.data.analysis;
+  if (event.type === 'model_proposal_created') renderModelDraft(event.data.proposal, null, event.data.model_mode);
+  if (event.type === 'model_proposal_rejected') renderModelDraft(null, event.data.model_error, event.data.model_mode);
   if (event.type === 'principles_evaluated') renderPrinciples(event.data.checks);
   if (event.type === 'run_paused') {
     setStatus('warning', 'PAUSED · 可恢复');
@@ -282,6 +286,7 @@ function renderEvidence() {
 }
 
 function renderReport(report, elapsedMs) {
+  lastReportTitle = report.report_title || 'Macro Research Report';
   latestClaims = report.claims || [];
   renderEvidence();
   if (report.research_type === 'cpi_deep_dive' && report.cpi_analysis) {
@@ -292,10 +297,21 @@ function renderReport(report, elapsedMs) {
     <article class="claim"><p>${escapeHtml(claim.text)}</p><div class="citations">${
       (claim.evidence_ids || []).map(id => `<span>${escapeHtml(id)}</span>`).join('')
     }</div></article>`).join('');
-  $('#tab-report').innerHTML = `
+  $('#tab-report').innerHTML = `<article class="institutional-report" id="printable-report">
+    <div class="report-masthead"><div><b>M9 MACRO RESEARCH</b><span>Independent analytical system · Research only</span></div><button class="pdf-button" data-export-pdf>⇩ Print / Save PDF</button></div>
     <div class="report-header"><div><h3>${escapeHtml(report.report_title || 'Macro Regime Research')}</h3><p>${escapeHtml(report.executive_summary)}</p></div><span class="outcome ${report.status === 'ABSTAIN' ? 'abstain' : ''}">${escapeHtml(report.status)}</span></div>
+    ${report.model_error ? `<div class="publication-block"><strong>MODEL DRAFT UNAVAILABLE</strong><p>${escapeHtml(report.model_error)}</p><small>请在“OpenAI 原始草稿”标签查看诊断。数字分析仍保留，但未冒充模型报告发布。</small></div>` : ''}
     <div class="claim-list">${claims || '<article class="claim"><p>没有通过发布门禁的研究结论。</p></article>'}</div>
-    <div class="report-meta"><span>Confidence ${Number(report.confidence || 0).toFixed(2)}</span><span>${report.research_only ? 'Research only' : ''}</span><span>Automatic execution ${String(report.automatic_execution)}</span><span>Effects ${report.effect_count}</span><span>${elapsedMs} ms</span></div>`;
+    <div class="report-meta"><span>Confidence ${Number(report.confidence || 0).toFixed(2)}</span><span>${report.research_only ? 'Research only' : ''}</span><span>Automatic execution ${String(report.automatic_execution)}</span><span>Effects ${report.effect_count}</span><span>${elapsedMs} ms</span></div></article>`;
+}
+
+function renderModelDraft(proposal, error, mode) {
+  if (!proposal) {
+    $('#model-draft').innerHTML = `<article class="model-diagnostic"><span>MODEL PROPOSAL REJECTED</span><h3>OpenAI 没有返回可验证的研究草稿</h3><p>${escapeHtml(error || 'Unknown model error')}</p><div><b>这不是报告结论</b><small>Runtime 已停止发布；Key、错误请求体和凭据不会写入 Trace。</small></div></article>`;
+    return;
+  }
+  const claims = (proposal.claims || []).map(item => `<li><em>${escapeHtml(item.classification || 'UNCLASSIFIED')}</em><p>${escapeHtml(item.text)}</p><small>${(item.evidence_ids || []).map(escapeHtml).join(' · ')}</small></li>`).join('');
+  $('#model-draft').innerHTML = `<article class="model-draft-view"><header><div><span>UNPUBLISHED MODEL DRAFT</span><h3>${escapeHtml(proposal.report_title || 'OpenAI Research Draft')}</h3></div><b>${escapeHtml(mode || 'live')}</b></header><section><h4>模型实际输出的摘要</h4><p>${escapeHtml(proposal.executive_summary)}</p></section><section><h4>模型实际输出的论点</h4><ol>${claims}</ol></section><details><summary>查看完整 Structured Output JSON</summary><pre>${escapeHtml(pretty(proposal))}</pre></details><footer>草稿必须经过 Citation、Evidence、Critic、SLO 与九项原则门禁，才会进入最终 PDF。</footer></article>`;
 }
 
 function metric(value, suffix = '') {
@@ -323,6 +339,7 @@ function lineChart(points) {
 }
 
 function renderCpiReport(report, elapsedMs) {
+  lastReportTitle = report.report_title || '美国 CPI 影响因子专题';
   const analysis = report.cpi_analysis;
   const headline = analysis.headline || {};
   const core = analysis.core || {};
@@ -335,8 +352,10 @@ function renderCpiReport(report, elapsedMs) {
   const scenarios = (report.scenario_outlook || []).map(item => `<article class="scenario-card"><span>${escapeHtml(item.probability_band)}</span><h4>${escapeHtml(item.name)}</h4><p>${escapeHtml(item.description)}</p><ul>${(item.triggers || []).map(trigger => `<li>${escapeHtml(trigger)}</li>`).join('')}</ul></article>`).join('');
   const methodology = (report.methodology || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
   const risks = (report.risks || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
-  $('#tab-report').innerHTML = `
+  $('#tab-report').innerHTML = `<article class="institutional-report" id="printable-report">
+    <div class="report-masthead"><div><b>M9 MACRO RESEARCH</b><span>U.S. Inflation Strategy · Independent research system</span></div><button class="pdf-button" data-export-pdf>⇩ Print / Save PDF</button></div>
     <div class="report-header cpi-report-head"><div><span class="research-kicker">INSTITUTIONAL-STYLE · RESEARCH ONLY · ${escapeHtml(analysis.as_of)}</span><h3>${escapeHtml(report.report_title || '美国 CPI 影响因子专题')}</h3><p>${escapeHtml(report.executive_summary)}</p></div><span class="outcome ${report.status === 'ABSTAIN' ? 'abstain' : ''}">${escapeHtml(report.status)}</span></div>
+    ${report.model_error ? `<div class="publication-block"><strong>OPENAI 草稿未生成，报告已 ABSTAIN</strong><p>${escapeHtml(report.model_error)}</p><small>下方数值是确定性 CPI Engine 输出，不是大模型语言。切换到“OpenAI 原始草稿”查看诊断。</small></div>` : ''}
     ${report.fixture_disclaimer ? '<div class="fixture-banner">教学历史数据 · 不代表当前市场；切换 Live 才能生成实时专题</div>' : ''}
     <section class="cpi-hero-metrics"><article><span>Headline YoY</span><strong>${metric(headline.yoy, '%')}</strong><small>${escapeHtml(headline.signal || '')}</small></article><article><span>Headline 3m ann.</span><strong>${metric(headline.momentum_3m_annualized, '%')}</strong><small>短期动量</small></article><article><span>Core YoY</span><strong>${metric(core.yoy, '%')}</strong><small>${escapeHtml(core.signal || '')}</small></article><article><span>Report confidence</span><strong>${metric(Number(report.confidence || 0) * 100, '%')}</strong><small>研究置信度，非概率</small></article></section>
     <div class="cpi-report-grid"><section class="research-section chart-section"><div class="section-title"><span>01</span><div><h4>通胀轨迹</h4><small>Headline 与 Core · 12个月同比</small></div></div>${lineChart(analysis.inflation_chart)}</section><section class="research-section findings-section"><div class="section-title"><span>02</span><div><h4>核心判断</h4><small>Facts → Inference</small></div></div><ol>${findings}</ol></section></div>
@@ -344,7 +363,15 @@ function renderCpiReport(report, elapsedMs) {
     <section class="research-section"><div class="section-title"><span>04</span><div><h4>证据化论点</h4><small>每项结论标记事实、推断或情景，并绑定 Evidence ID</small></div></div><div class="claim-list">${claims || '<article class="claim"><p>没有通过发布门禁的研究结论。</p></article>'}</div></section>
     <section class="research-section"><div class="section-title"><span>05</span><div><h4>三情景展望</h4><small>概率带未校准，不作为投资信号</small></div></div><div class="scenario-grid">${scenarios}</div></section>
     <div class="cpi-report-grid"><section class="research-section prose-list"><div class="section-title"><span>06</span><div><h4>方法</h4><small>可复算的确定性计算</small></div></div><ul>${methodology}</ul></section><section class="research-section prose-list risks-list"><div class="section-title"><span>07</span><div><h4>局限与反方风险</h4><small>必须披露</small></div></div><ul>${risks}</ul></section></div>
-    <div class="report-meta"><span>OpenAI proposal ${$('#model-mode').value === 'live' ? escapeHtml($('#model-id').value) : 'deterministic'}</span><span>Research only</span><span>Automatic execution false</span><span>Effects ${report.effect_count}</span><span>${elapsedMs} ms</span></div>`;
+    <div class="report-meta"><span>OpenAI proposal ${report.model_mode === 'live' ? escapeHtml($('#model-id').value) : 'deterministic'}</span><span>Research only</span><span>Automatic execution false</span><span>Effects ${report.effect_count}</span><span>${elapsedMs} ms</span></div>
+    <footer class="research-disclaimer">This material is generated for research and education. Statistical association is not causation, and no content is investment advice.</footer></article>`;
+}
+
+function exportPdf() {
+  const originalTitle = document.title;
+  document.title = lastReportTitle.replace(/[\\/:*?"<>|]/g, '-');
+  window.addEventListener('afterprint', () => { document.title = originalTitle; }, {once: true});
+  window.print();
 }
 
 async function loadCheckpoint() {
@@ -414,6 +441,9 @@ ui.eventButton.addEventListener('click', () => ui.eventDetail.classList.toggle('
 $('#modal-close').addEventListener('click', () => $('#agent-modal').classList.add('hidden'));
 $('#agent-modal').addEventListener('click', event => event.target.id === 'agent-modal' && $('#agent-modal').classList.add('hidden'));
 $('#research-type').addEventListener('change', updateResearchTemplate);
+document.addEventListener('click', event => {
+  if (event.target.closest('[data-export-pdf]')) exportPdf();
+});
 $$('.tabs button').forEach(button => button.addEventListener('click', () => {
   $$('.tabs button').forEach(item => item.classList.toggle('active', item === button));
   $$('.tab-page').forEach(page => page.classList.toggle('active', page.id === `tab-${button.dataset.tab}`));

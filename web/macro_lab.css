@@ -319,3 +319,64 @@ pre { margin: 0; padding: 13px; color: #a9c2d1; font: 10px/1.55 ui-monospace, SF
   .workspace-grid { grid-template-columns: 250px 1fr 285px; }
   .settings-grid, .evidence-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Printable institutional research document. Deliberately unbranded. */
+.institutional-report {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 30px 34px 24px;
+  color: #18212a;
+  background: #f7f6f2;
+  border-top: 7px solid #18395f;
+  box-shadow: 0 18px 55px rgba(0,0,0,.24);
+  font-family: Georgia, "Times New Roman", "Noto Serif SC", serif;
+}
+.report-masthead { display:flex; align-items:flex-start; justify-content:space-between; padding-bottom:16px; margin-bottom:24px; border-bottom:1px solid #b9c1c8; }
+.report-masthead b,.report-masthead span { display:block; }
+.report-masthead b { color:#18395f; font:800 13px/1.2 Inter,system-ui,sans-serif; letter-spacing:.12em; }
+.report-masthead span { margin-top:5px; color:#68737d; font:10px Inter,system-ui,sans-serif; }
+.pdf-button { padding:9px 13px; color:white; background:#18395f; border:0; border-radius:3px; font:800 10px Inter,system-ui,sans-serif; letter-spacing:.05em; }
+.institutional-report .report-header h3 { color:#101820; font-size:29px; line-height:1.15; letter-spacing:-.02em; }
+.institutional-report .report-header p { color:#46525d; font-size:13px; }
+.institutional-report .research-kicker { color:#9b721b; }
+.institutional-report .outcome { color:#1f684d; background:#eaf3ee; border-color:#9ebcae; font-family:Inter,system-ui,sans-serif; }
+.institutional-report .outcome.abstain { color:#8a3a30; background:#f7e8e5; border-color:#d7aaa3; }
+.publication-block { margin:18px 0; padding:14px 16px; color:#6f2d25; background:#faece9; border-left:4px solid #a84638; font-family:Inter,system-ui,sans-serif; }
+.publication-block strong,.publication-block small { display:block; }.publication-block p { margin:6px 0; font-size:12px; }.publication-block small { color:#7a625f; font-size:9px; }
+.institutional-report .fixture-banner { color:#563f0a; background:#f5e7bd; border:1px solid #ddc36d; }
+.institutional-report .cpi-hero-metrics article { background:#fff; border-color:#cbd1d5; border-radius:3px; box-shadow:none; }
+.institutional-report .cpi-hero-metrics span,.institutional-report .cpi-hero-metrics small { color:#68747e; font-family:Inter,system-ui,sans-serif; }
+.institutional-report .cpi-hero-metrics strong { color:#18395f; }
+.institutional-report .research-section { background:#fff; border-color:#cdd2d6; border-radius:2px; box-shadow:none; }
+.institutional-report .section-title>span { color:white; background:#18395f; border-radius:2px; font-family:Inter,system-ui,sans-serif; }
+.institutional-report .section-title h4 { color:#18212a; font-size:15px; }.institutional-report .section-title small { color:#71808a; font-family:Inter,system-ui,sans-serif; }
+.institutional-report .chart-grid line { stroke:#dfe3e5; }.institutional-report .chart-grid text,.institutional-report .chart-legend text,.institutional-report .chart-date { fill:#66737d; }
+.institutional-report .headline-line { stroke:#18395f; }.institutional-report .core-line { stroke:#b48a28; }.institutional-report .chart-legend circle { fill:#18395f; }.institutional-report .chart-legend .core-dot { fill:#b48a28; }
+.institutional-report .findings-section ol,.institutional-report .prose-list ul,.institutional-report .scenario-card ul { color:#2f3b44; }
+.institutional-report .factor-table th { color:#5c6872; border-color:#bbc3c8; font-family:Inter,system-ui,sans-serif; }.institutional-report .factor-table td { color:#25313a; border-color:#e0e3e5; }.institutional-report .factor-table td small { color:#78838b; }
+.institutional-report .signal { font-family:Inter,system-ui,sans-serif; }.institutional-report .signal.hotter { color:#8c352c; background:#f7e7e4; }.institutional-report .signal.cooler { color:#216247; background:#e7f3ec; }
+.institutional-report .pressure { background:#e4e7e8; }.institutional-report .pressure i { background:linear-gradient(90deg,#4a826a,#c29a35,#a84b3f); }
+.institutional-report .claim { color:#25313a; background:#fff; border-color:#cdd3d7; border-radius:2px; }
+.institutional-report .claim-kind { font-family:Inter,system-ui,sans-serif; }.institutional-report .citations span { color:#18395f; background:#edf1f4; font-family:ui-monospace,monospace; }
+.institutional-report .scenario-card { color:#202a32; background:#f4f5f3; border-color:#ccd2d5; border-radius:2px; }.institutional-report .scenario-card>span { color:#8c6819; font-family:Inter,system-ui,sans-serif; }.institutional-report .scenario-card p { color:#48545d; }
+.institutional-report .risks-list { border-color:#cfaaa4; }.institutional-report .report-meta { padding-top:12px; color:#69747d; border-top:1px solid #c8ced2; font-family:Inter,system-ui,sans-serif; flex-wrap:wrap; }
+.research-disclaimer { margin-top:16px; color:#727b82; font:9px/1.5 Inter,system-ui,sans-serif; }
+
+.model-diagnostic,.model-draft-view { max-width:1050px; margin:10px auto; padding:24px; border:1px solid #30495a; border-radius:12px; background:#08141d; }
+.model-diagnostic>span,.model-draft-view header span { color:var(--red); font:800 9px ui-monospace,monospace; letter-spacing:.12em; }.model-diagnostic h3,.model-draft-view h3 { margin:8px 0; }.model-diagnostic>p { padding:12px; color:#ffc4c8; background:rgba(255,111,121,.08); border-left:3px solid var(--red); font:11px/1.6 ui-monospace,monospace; }.model-diagnostic div { margin-top:15px; }.model-diagnostic b,.model-diagnostic small { display:block; }.model-diagnostic small { margin-top:4px; color:var(--muted); }
+.model-draft-view header { display:flex; justify-content:space-between; border-bottom:1px solid var(--line); padding-bottom:14px; }.model-draft-view header span { color:var(--amber); }.model-draft-view header b { color:var(--cyan); font:10px ui-monospace,monospace; }.model-draft-view section { margin-top:18px; }.model-draft-view h4 { color:var(--cyan); font-size:10px; text-transform:uppercase; letter-spacing:.1em; }.model-draft-view section>p { color:#d5e1e7; font-size:14px; line-height:1.7; }.model-draft-view ol { display:grid; gap:8px; padding-left:20px; }.model-draft-view li { padding:10px; border:1px solid var(--line); }.model-draft-view li em { color:var(--violet); font:800 8px ui-monospace,monospace; }.model-draft-view li p { margin:5px 0; font-size:11px; }.model-draft-view li small { color:var(--cyan); font:8px ui-monospace,monospace; }.model-draft-view details { margin-top:18px; }.model-draft-view summary { color:var(--muted); cursor:pointer; }.model-draft-view footer { margin-top:18px; color:var(--amber); font-size:9px; }
+
+@media print {
+  @page { size: A4; margin: 10mm; }
+  html,body { min-width:0; color:#111; background:#fff; }
+  .topbar,.mission-strip,main>.control-deck,main>.metric-row,main>.workspace-grid,.tabs { display:none !important; }
+  main { max-width:none; margin:0; padding:0; }
+  .result-panel { margin:0; min-height:0; overflow:visible; border:0; background:#fff; box-shadow:none; }
+  .tab-page { display:none !important; padding:0; }
+  #tab-report { display:block !important; }
+  .institutional-report { width:100%; max-width:none; margin:0; padding:12px 8px; border-top-width:5px; box-shadow:none; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  .pdf-button { display:none !important; }
+  .research-section,.claim,.scenario-card,.cpi-hero-metrics article { break-inside:avoid; }
+  .cpi-report-grid { grid-template-columns:1fr; }
+  .cpi-chart { min-height:180px; }
+}

@@ -99,12 +99,14 @@
     <section class="panel result-panel">
       <nav class="tabs">
         <button class="active" data-tab="report">研究报告</button>
+        <button data-tab="model">OpenAI 原始草稿</button>
         <button data-tab="evidence">Evidence Graph</button>
         <button data-tab="contract">Task Contract</button>
         <button data-tab="checkpoint">State / Checkpoint</button>
         <button data-tab="architecture">Architecture</button>
       </nav>
       <div id="tab-report" class="tab-page active"><div class="empty-result"><strong>CPI 专题报告等待生成</strong><p>所有数字先由确定性引擎计算；OpenAI 只负责有引用的叙事与情景分析。</p></div></div>
+      <div id="tab-model" class="tab-page"><div id="model-draft"><div class="empty-result"><strong>等待 OpenAI 输出</strong><p>这里显示模型实际生成的中文、结构化 JSON，以及未发布时的精确错误。</p></div></div></div>
       <div id="tab-evidence" class="tab-page"><div id="evidence-grid" class="evidence-grid"></div></div>
       <div id="tab-contract" class="tab-page"><pre id="contract-json">—</pre></div>
       <div id="tab-checkpoint" class="tab-page"><pre id="checkpoint-json">—</pre></div>

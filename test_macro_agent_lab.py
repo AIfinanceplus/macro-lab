@@ -99,6 +99,21 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertFalse(captured["payload"]["store"])
         self.assertEqual(result["claims"][0]["classification"], "FACT")
 
+    def test_model_failure_is_visible_in_final_report_without_secret(self):
+        with TemporaryDirectory() as directory:
+            events = list(self.runtime(directory).run_stream({
+                "research_type": "cpi_deep_dive", "mode": "fixture",
+                "model_mode": "live", "model_api_key": "",
+            }))
+            rejected = next(event for event in events
+                            if event["type"] == "model_proposal_rejected")
+            self.assertEqual(rejected["data"]["model_error"],
+                             "model API key is required")
+            report = events[-1]["data"]["report"]
+            self.assertEqual(report["status"], "ABSTAIN")
+            self.assertEqual(report["model_error"], "model API key is required")
+            self.assertIn("model API key is required", report["risks"])
+
     def test_tainted_news_is_quarantined_and_never_cited(self):
         with TemporaryDirectory() as directory:
             events = list(self.runtime(directory).run_stream({
@@ -305,8 +320,11 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertIn("信息流 · 决策流 · 风险流", html)
         self.assertIn("9-PRINCIPLE CONFORMANCE", html)
         self.assertIn("Resume from checkpoint", html)
+        self.assertIn("OpenAI 原始草稿", html)
         self.assertIn("event belongs to another run", js)
         self.assertIn("↻ Run again", js)
+        self.assertIn("Print / Save PDF", js)
+        self.assertIn("window.print()", js)
 
     def test_3d_architecture_exposes_full_system_without_webgl(self):
         root = Path(__file__).resolve().parent

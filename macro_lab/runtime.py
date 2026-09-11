@@ -184,6 +184,7 @@ class MacroResearchRuntime:
                         if state["research_type"] == "cpi_deep_dive"
                         else deterministic_proposal(state["evidence"]))
         state["proposal"] = proposal
+        state["model_error"] = model_error
         state["stage"] = "proposal_created"
         self._checkpoint(state)
         yield self._emit(state, "model_proposal_created" if proposal else "model_proposal_rejected",
@@ -214,8 +215,11 @@ class MacroResearchRuntime:
                             tuple(item["evidence_id"] for item in state["evidence"]))
         outcome = "COMPLETE" if verification["passed"] else "ABSTAIN"
         report = deepcopy(state.get("proposal") or {
-            "executive_summary": "证据或模型输出未满足发布契约。",
-            "claims": [], "risks": [verification["summary"]], "confidence": 0.0,
+            "report_title": "研究提议未发布",
+            "executive_summary": "模型没有产生可供发布门禁验证的研究草稿。",
+            "key_findings": [], "claims": [], "factor_assessment": [],
+            "scenario_outlook": [], "methodology": [],
+            "risks": [model_error or verification["summary"]], "confidence": 0.0,
         })
         report.update({
             "status": outcome, "research_only": True, "automatic_execution": False,
@@ -224,6 +228,8 @@ class MacroResearchRuntime:
             "fixture_disclaimer": state["mode"] == "fixture",
             "research_type": state["research_type"],
             "cpi_analysis": state.get("cpi_analysis"),
+            "model_mode": state["model_mode"], "model_error": model_error,
+            "verification_reasons": verification["reasons"],
         })
         state["report"] = report
         checks = self._principle_checks(state, elapsed_ms=elapsed_ms)
@@ -519,6 +525,7 @@ class MacroResearchRuntime:
             "contract": None, "plan": [], "candidates": [], "evidence": [],
             "quarantine": [], "contradictions": [], "tool_calls": [], "handoffs": [], "source_errors": [],
             "proposal": None, "verification": None, "report": None,
+            "model_error": None,
             "principle_checks": [], "memory": {}, "effect_count": 0,
             "resume_count": 0, "resumed": False,
         }

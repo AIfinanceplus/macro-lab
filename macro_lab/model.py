@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -126,11 +127,25 @@ class OpenAICompatibleModel:
                 result = json.loads(response.read().decode("utf-8"))
             content = result.get("output_text")
             if not content:
-                content = next(
+                content = next((
                     part.get("text", "")
                     for item in result.get("output", []) if item.get("type") == "message"
                     for part in item.get("content", []) if part.get("type") == "output_text"
-                )
+                ), "")
+            if not content:
+                raise ModelProposalError("OpenAI response contained no output_text")
+        except HTTPError as exc:
+            detail = ""
+            try:
+                error_body = json.loads(exc.read().decode("utf-8"))
+                detail = str(error_body.get("error", {}).get("message", ""))
+            except (AttributeError, json.JSONDecodeError, UnicodeDecodeError):
+                pass
+            detail = detail.replace(api_key, "[REDACTED]") if api_key else detail
+            raise ModelProposalError(
+                f"OpenAI HTTP {exc.code}: {detail or exc.reason}") from exc
+        except ModelProposalError:
+            raise
         except Exception as exc:
             raise ModelProposalError(f"model request failed: {type(exc).__name__}: {exc}") from exc
         return _extract_json(content)
