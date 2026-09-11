@@ -75,6 +75,8 @@ let camera = {yaw:-.28, pitch:.17, zoom:52};
 let viewport = {width:1, height:1, dpr:1};
 let initialFitPending = true;
 let pointer = null;
+const activePointers = new Map();
+let pinchDistance = null;
 let flowRunning = true;
 let speed = 1;
 let depth = 5;
@@ -273,17 +275,49 @@ function updateDepthLabel() {
 
 scene.addEventListener('pointerdown', event => {
   if (event.target.closest('.arch-node') || event.target.closest('.inspector')) return;
-  pointer={id:event.pointerId,x:event.clientX,y:event.clientY};
-  scene.setPointerCapture(event.pointerId); scene.classList.add('dragging'); stopStory();
+  activePointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  scene.setPointerCapture(event.pointerId);
+  scene.classList.add('dragging');
+  stopStory();
+  if (activePointers.size===1) {
+    pointer={id:event.pointerId,x:event.clientX,y:event.clientY};
+  } else if (activePointers.size===2) {
+    const [first,second]=[...activePointers.values()];
+    pinchDistance=Math.hypot(second.x-first.x,second.y-first.y);
+    pointer=null;
+  }
 });
 scene.addEventListener('pointermove', event => {
+  if (!activePointers.has(event.pointerId)) return;
+  activePointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  if (activePointers.size>=2) {
+    const [first,second]=[...activePointers.values()];
+    const nextDistance=Math.hypot(second.x-first.x,second.y-first.y);
+    if (pinchDistance!==null) camera.zoom=Math.max(24,Math.min(110,camera.zoom+(nextDistance-pinchDistance)*.12));
+    pinchDistance=nextDistance;
+    return;
+  }
   if (!pointer || pointer.id!==event.pointerId) return;
   const dx=event.clientX-pointer.x, dy=event.clientY-pointer.y;
   camera.yaw+=dx*.006; camera.pitch=Math.max(-.55,Math.min(.55,camera.pitch+dy*.004));
   pointer.x=event.clientX; pointer.y=event.clientY;
 });
 scene.addEventListener('pointerup', event => {
-  if (pointer?.id===event.pointerId) { pointer=null; scene.classList.remove('dragging'); }
+  activePointers.delete(event.pointerId);
+  pinchDistance=null;
+  if (activePointers.size===1) {
+    const [id,position]=[...activePointers.entries()][0];
+    pointer={id,x:position.x,y:position.y};
+  } else {
+    pointer=null;
+  }
+  if (activePointers.size===0) scene.classList.remove('dragging');
+});
+scene.addEventListener('pointercancel', event => {
+  activePointers.delete(event.pointerId);
+  pointer=null;
+  pinchDistance=null;
+  if (activePointers.size===0) scene.classList.remove('dragging');
 });
 scene.addEventListener('wheel', event => {
   event.preventDefault(); stopStory(); camera.zoom=Math.max(40,Math.min(110,camera.zoom-event.deltaY*.06));

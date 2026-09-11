@@ -249,6 +249,7 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertNotIn("WebGLRenderer", js)
         self.assertEqual(js.count("plane:'agent'"), 7)
         self.assertIn("9-Principle Gate", js)
+        self.assertIn("pinchDistance", js)
         self.assertIn('path in {"/architecture", "/architecture/"}', server)
 
 
