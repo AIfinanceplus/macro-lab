@@ -59,6 +59,8 @@ button { cursor: pointer; }
 .brand-copy h1 { margin: 2px 0 0; font-size: 19px; letter-spacing: -.02em; }
 .eyebrow { color: var(--cyan); font-size: 10px; font-weight: 800; letter-spacing: .15em; }
 .top-status { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.architecture-link { color: var(--cyan); text-decoration: none; font-size: 10px; font-weight: 800; letter-spacing: .07em; }
+.architecture-link:hover { color: var(--green); }
 .scope-pill, .run-status {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -223,6 +225,11 @@ pre { margin: 0; padding: 13px; color: #a9c2d1; font: 10px/1.55 ui-monospace, SF
 .tab-page.active { display: block; }
 .empty-result { text-align: center; padding: 65px; color: var(--muted); }
 .empty-result strong { color: #c4d3dc; }
+.architecture-launch { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 12px; margin-bottom: 14px; padding: 13px; color: var(--text); text-decoration: none; border: 1px solid rgba(66,213,232,.35); border-radius: 11px; background: linear-gradient(90deg, rgba(66,213,232,.09), rgba(167,124,255,.06)); }
+.architecture-launch > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 10px; color: #051217; background: linear-gradient(135deg,var(--cyan),var(--green)); font-size: 20px; }
+.architecture-launch strong, .architecture-launch small { display: block; }
+.architecture-launch small { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.architecture-launch em { color: var(--cyan); font-size: 20px; font-style: normal; }
 .report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .report-header h3 { margin: 0 0 8px; font-size: 20px; }
 .report-header p { margin: 0; color: #a5b8c4; max-width: 900px; line-height: 1.6; }

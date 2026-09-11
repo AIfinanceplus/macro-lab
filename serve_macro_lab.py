@@ -27,10 +27,16 @@ class MacroLabHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path in {"/", "/macro"}:
             return self._static("macro_lab.html", "text/html; charset=utf-8")
+        if path in {"/architecture", "/architecture/"}:
+            return self._static("macro_architecture.html", "text/html; charset=utf-8")
         if path == "/macro_lab.css":
             return self._static("macro_lab.css", "text/css; charset=utf-8")
         if path == "/macro_lab.js":
             return self._static("macro_lab.js", "text/javascript; charset=utf-8")
+        if path == "/macro_architecture.css":
+            return self._static("macro_architecture.css", "text/css; charset=utf-8")
+        if path == "/macro_architecture.js":
+            return self._static("macro_architecture.js", "text/javascript; charset=utf-8")
         if path == "/api/macro/manifest":
             return self._json(200, RUNTIME.manifest())
         if path == "/api/macro/runs":

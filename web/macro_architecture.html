@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Macro Agent Lab · 3D Architecture Atlas</title>
+  <link rel="stylesheet" href="/macro_architecture.css">
+</head>
+<body>
+  <div class="arch-shell">
+    <header class="arch-topbar">
+      <a class="arch-brand" href="/" aria-label="返回 Macro Agent Lab">
+        <span>M9</span>
+        <strong>Macro Agent Lab</strong>
+        <em>/ System Architecture</em>
+      </a>
+      <nav aria-label="Architecture actions">
+        <button id="overview-button" type="button">⌗ <span>Overview</span></button>
+        <a href="/">▦ <span>Agent Console</span></a>
+        <button id="story-button" class="story-button" type="button">▶ <span>Story mode</span><small>55 sec</small></button>
+      </nav>
+    </header>
+
+    <main id="scene" class="scene">
+      <canvas id="architecture-canvas" aria-label="宏观研究 Agent 工程架构三维关系图"></canvas>
+      <div id="node-layer" class="node-layer" aria-label="Architecture modules"></div>
+
+      <section class="scene-copy" aria-live="polite">
+        <span id="chapter-label">SYSTEM OVERVIEW · 26 MODULES</span>
+        <h1 id="chapter-title">严谨宏观研究 Agent 的完整工程剖面</h1>
+        <p id="chapter-copy">拖动空间旋转，滚轮或双指缩放；点击任一模块查看输入、输出、权限和九项原则映射。</p>
+      </section>
+
+      <aside id="inspector" class="inspector" aria-live="polite">
+        <button id="inspector-close" type="button" aria-label="关闭模块详情">×</button>
+        <span id="inspector-plane">CONTROL PLANE</span>
+        <div class="inspector-title"><b id="inspector-icon">◎</b><div><h2 id="inspector-name">Runtime Control Plane</h2><p id="inspector-subtitle">选择一个模块</p></div></div>
+        <p id="inspector-purpose">这里将显示该模块在完整研究运行中的职责边界。</p>
+        <dl>
+          <div><dt>INPUT</dt><dd id="inspector-input">—</dd></div>
+          <div><dt>OUTPUT</dt><dd id="inspector-output">—</dd></div>
+          <div><dt>AUTHORITY</dt><dd id="inspector-authority">—</dd></div>
+          <div><dt>PRINCIPLES</dt><dd id="inspector-principles">—</dd></div>
+        </dl>
+      </aside>
+
+      <div class="scene-hint"><span>DRAG</span> rotate · <span>SCROLL</span> zoom · <span>CLICK</span> inspect</div>
+    </main>
+
+    <footer class="control-dock">
+      <button id="flow-button" class="flow-toggle" type="button" aria-pressed="true">Ⅱ</button>
+      <fieldset class="flow-filters">
+        <legend>Visible flows</legend>
+        <label><input type="checkbox" data-flow="information" checked><i class="information"></i>Information</label>
+        <label><input type="checkbox" data-flow="decision" checked><i class="decision"></i>Decision</label>
+        <label><input type="checkbox" data-flow="risk" checked><i class="risk"></i>Risk control</label>
+      </fieldset>
+      <label class="depth-control">Engineering depth <input id="depth-slider" type="range" min="1" max="5" value="5"><output id="depth-output">Full system</output></label>
+      <label class="speed-control">Flow speed<select id="speed-select"><option value="0.45">0.4×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label>
+      <div class="story-progress" aria-hidden="true"><i id="story-progress"></i></div>
+    </footer>
+  </div>
+  <script src="/macro_architecture.js"></script>
+</body>
+</html>

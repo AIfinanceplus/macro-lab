@@ -48,6 +48,16 @@ const {chromium} = require('playwright');
     await page.waitForFunction(() => document.querySelector('#run-status')?.textContent.includes('COMPLETE'));
     assert.equal(Number(await page.locator('#metric-tools').innerText()), toolCount);
     assert.equal(await page.locator('#score-value').innerText(), '9/9');
+
+    await page.goto('http://127.0.0.1:8011/architecture');
+    await page.waitForSelector('[data-arch-node="director"]');
+    assert.equal(await page.locator('[data-plane="agent"]').count(), 7);
+    assert.equal(await page.locator('#architecture-canvas').isVisible(), true);
+    assert.equal(await page.locator('[data-arch-node]').count(), 26);
+    await page.locator('[data-arch-node="governor"]').click();
+    assert.equal(await page.locator('#inspector').getAttribute('class'), 'inspector open');
+    assert.match(await page.locator('#inspector-principles').innerText(), /P9/);
+    assert.equal(pageErrors.length, 0, pageErrors.join('\n'));
   } finally {
     if (browser) await browser.close();
     server.kill('SIGTERM');

@@ -237,6 +237,20 @@ class MacroAgentLabTests(unittest.TestCase):
         self.assertIn("event belongs to another run", js)
         self.assertIn("↻ Run again", js)
 
+    def test_3d_architecture_exposes_full_system_without_webgl(self):
+        root = Path(__file__).resolve().parent
+        html = (root / "web/macro_architecture.html").read_text(encoding="utf-8")
+        js = (root / "web/macro_architecture.js").read_text(encoding="utf-8")
+        server = (root / "serve_macro_lab.py").read_text(encoding="utf-8")
+        self.assertIn('id="architecture-canvas"', html)
+        self.assertIn("Story mode", html)
+        self.assertIn("Visible flows", html)
+        self.assertIn("canvas.getContext('2d')", js)
+        self.assertNotIn("WebGLRenderer", js)
+        self.assertEqual(js.count("plane:'agent'"), 7)
+        self.assertIn("9-Principle Gate", js)
+        self.assertIn('path in {"/architecture", "/architecture/"}', server)
+
 
 if __name__ == "__main__":
     unittest.main()
